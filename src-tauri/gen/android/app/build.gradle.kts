@@ -1,4 +1,4 @@
-﻿import java.util.Properties
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -16,6 +16,11 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
+    ndkVersion = "27.2.12479018"
+    val ndkHome = System.getenv("NDK_HOME")
+    if (!ndkHome.isNullOrBlank()) {
+        ndkPath = ndkHome
+    }
     namespace = "cn.forestweave.proxmarkstudio"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -31,12 +36,6 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {
-                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
-                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
-            }
         }
         getByName("release") {
             optimization {
