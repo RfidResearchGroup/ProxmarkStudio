@@ -27,7 +27,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConnectionStore } from '@/stores/connection'
 import { usePlatformStore } from '@/stores/platform'
 import { useToastStore } from '@/stores/toast'
-import { openExternal } from '@/services/backend'
+import { openExternal, isAndroid, type SerialPortInfo } from '@/services/backend'
 import {
   ensureBluetoothPermissions,
   getBluetoothState,
@@ -39,7 +39,17 @@ import {
 import { errorMessage, formatDuration } from '@/utils/format'
 import { APP_DOCUMENTATION } from '@/config/links'
 
-type Method = 'usb' | 'ble' | 'spp'
+type DeviceKind = 'usb' | 'spp' | 'ble'
+
+interface UnifiedDevice {
+  id: string
+  kind: DeviceKind
+  name: string
+  detail: string
+  meta: string
+  port?: SerialPortInfo
+  ble?: BleDeviceInfo
+}
 
 const router = useRouter()
 const settings = useSettingsStore()
@@ -47,11 +57,8 @@ const connection = useConnectionStore()
 const platform = usePlatformStore()
 const toast = useToastStore()
 
-const method = ref<Method>('usb')
-const selectedUsb = ref('')
-const selectedSpp = ref('')
+const selectedId = ref('')
 const bleDevices = ref<BleDeviceInfo[]>([])
-const selectedBle = ref<BleDeviceInfo | null>(null)
 const scanning = ref(false)
 const scanned = ref(false)
 const refreshing = ref(false)
@@ -69,29 +76,66 @@ let scanTimer: number | null = null
 let clockTimer: number | null = null
 
 const capabilities = computed(() => platform.info.capabilities)
-const methods = computed(() => [
-  {
-    id: 'usb' as const,
-    label: settings.t('home.methodUsb'),
-    short: settings.t('home.methodUsbShort'),
-    icon: Usb,
-    available: capabilities.value.usbSerial,
-  },
-  {
-    id: 'ble' as const,
-    label: settings.t('home.methodBle'),
-    short: settings.t('home.methodBleShort'),
-    icon: Bluetooth,
-    available: capabilities.value.ble,
-  },
-  {
-    id: 'spp' as const,
-    label: settings.t('home.methodSpp'),
-    short: settings.t('home.methodSppShort'),
-    icon: Radio,
-    available: capabilities.value.spp,
-  },
-])
+
+function deviceScore(device: UnifiedDevice): number {
+  let score = 0
+  if (/pm3|proxmark/i.test(device.name)) score += 100
+  if (device.kind === 'usb') score += 30
+  else if (device.kind === 'spp') score += 20
+  else score += 10 + (device.ble?.rssi ?? -100) / 10
+  return score
+}
+
+const unifiedDevices = computed<UnifiedDevice[]>(() => {
+  const devices: UnifiedDevice[] = []
+  if (capabilities.value.usbSerial) {
+    for (const port of connection.usbPorts) {
+      devices.push({
+        id: `usb:${port.path}`,
+        kind: 'usb',
+        name: port.product || port.path,
+        detail: [port.path, port.manufacturer].filter(Boolean).join(' · '),
+        meta: port.serialNumber || '',
+        port,
+      })
+    }
+  }
+  if (capabilities.value.spp) {
+    for (const port of connection.sppPorts) {
+      devices.push({
+        id: `spp:${port.path}`,
+        kind: 'spp',
+        name: port.product || port.path,
+        detail: port.path,
+        meta: settings.t('home.paired'),
+        port,
+      })
+    }
+  }
+  if (capabilities.value.ble) {
+    for (const device of bleDevices.value) {
+      devices.push({
+        id: `ble:${device.address}`,
+        kind: 'ble',
+        name: device.name,
+        detail: device.address,
+        meta: settings.t('home.rssi', { rssi: device.rssi }),
+        ble: device,
+      })
+    }
+  }
+  return devices.sort((a, b) => deviceScore(b) - deviceScore(a))
+})
+
+const selectedDevice = computed(
+  () => unifiedDevices.value.find((device) => device.id === selectedId.value) ?? null,
+)
+
+function kindLabel(kind: DeviceKind): string {
+  if (kind === 'usb') return settings.t('home.deviceUsb')
+  if (kind === 'spp') return settings.t('home.deviceSpp')
+  return settings.t('home.deviceBle')
+}
 
 const isConnected = computed(() => connection.isConnected)
 const connecting = computed(() => connection.status === 'connecting' && !connection.isConnected)
@@ -123,34 +167,21 @@ const heroStateClass = computed(() => {
   return 'idle'
 })
 
-const selectedPortValid = computed(() => {
-  if (method.value === 'usb') return Boolean(selectedUsb.value)
-  if (method.value === 'spp') return Boolean(selectedSpp.value)
-  return Boolean(selectedBle.value)
-})
+const selectedPortValid = computed(() => Boolean(selectedDevice.value))
 
 const connectDisabled = computed(() => {
-  if (connecting.value) return true
-  if (!methods.value.find((entry) => entry.id === method.value)?.available) return true
+  if (connecting.value || disconnecting.value) return true
   return !selectedPortValid.value
 })
 
 const connectLabel = computed(() => {
-  if (method.value === 'ble' && selectedBle.value) {
-    return settings.t('home.connectTo', { name: selectedBle.value.name })
+  if (selectedDevice.value?.kind === 'ble') {
+    return settings.t('home.connectTo', { name: selectedDevice.value.name })
   }
   return settings.t('home.connect')
 })
 
-const connectingTarget = computed(() => {
-  if (method.value === 'usb') {
-    return connection.usbPorts.find((port) => port.path === selectedUsb.value)?.product || selectedUsb.value
-  }
-  if (method.value === 'spp') {
-    return connection.sppPorts.find((port) => port.path === selectedSpp.value)?.product || selectedSpp.value
-  }
-  return selectedBle.value?.name || ''
-})
+const connectingTarget = computed(() => selectedDevice.value?.name || '')
 
 const deviceRows = computed(() => {
   const device = connection.device
@@ -198,53 +229,24 @@ const uptime = computed(() => {
 
 const bluetoothState = ref('Unknown')
 
-function selectMethod(next: Method) {
-  if (method.value === next) return
-  method.value = next
-  settings.setPreferredTransport(next)
-  if (next === 'spp') {
-    // SPP needs BLUETOOTH_CONNECT on Android 12+; the BLE plugin exposes the
-    // same runtime permission request used for scanning.
-    void ensureBluetoothPermissions().then(() => connection.refreshPorts())
-  }
+function selectDevice(device: UnifiedDevice) {
+  if (connecting.value || disconnecting.value) return
+  selectedId.value = device.id
 }
 
-function initialiseSelections() {
-  if (!selectedUsb.value && connection.usbPorts.length) selectedUsb.value = connection.usbPorts[0].path
-  if (!selectedSpp.value && connection.sppPorts.length) {
-    // Never silently pick an arbitrary paired device (headset, car kit, ...).
-    // Prefer a Proxmark, then a known SPP bridge, otherwise wait for the user.
-    const score = (port: {
-      product?: string | null
-      manufacturer?: string | null
-      path: string
-    }) => {
-      const text = `${port.product ?? ''} ${port.manufacturer ?? ''} ${port.path}`
-      if (/pm3|proxmark/i.test(text)) return 3
-      if (/spp/i.test(text)) return 2
-      if (/jdy|hc-0[56]/i.test(text)) return 1
-      return 0
-    }
-    const preferred = [...connection.sppPorts].sort((a, b) => score(b) - score(a))[0]
-    if (preferred && score(preferred) > 0) selectedSpp.value = preferred.path
+function syncSelection() {
+  if (selectedId.value && unifiedDevices.value.some((device) => device.id === selectedId.value)) {
+    return
   }
-}
-
-function syncSelections() {
-  if (selectedUsb.value && !connection.usbPorts.some((port) => port.path === selectedUsb.value)) {
-    selectedUsb.value = ''
-  }
-  if (selectedSpp.value && !connection.sppPorts.some((port) => port.path === selectedSpp.value)) {
-    selectedSpp.value = ''
-  }
-  initialiseSelections()
+  selectedId.value = unifiedDevices.value[0]?.id ?? ''
 }
 
 async function refreshAll() {
   refreshing.value = true
   try {
+    if (isAndroid) await ensureBluetoothPermissions().catch(() => {})
     await connection.refreshPorts()
-    initialiseSelections()
+    syncSelection()
     if (isConnected.value) await connection.probeDevice()
   } finally {
     refreshing.value = false
@@ -252,13 +254,14 @@ async function refreshAll() {
 }
 
 async function connect() {
-  if (connectDisabled.value) return
+  const device = selectedDevice.value
+  if (connectDisabled.value || !device) return
   connection.clearError()
   try {
-    if (method.value === 'usb') {
-      await connection.connectUsb(selectedUsb.value)
-    } else if (method.value === 'ble') {
-      if (!selectedBle.value) return
+    if (device.kind === 'usb') {
+      await connection.connectUsb(device.port?.path ?? device.detail)
+    } else if (device.kind === 'ble') {
+      if (!device.ble) return
       const config: BleUartConfig | undefined = useCustomUart.value
         ? {
             serviceUuid: uart.service,
@@ -266,9 +269,9 @@ async function connect() {
             notifyUuid: uart.notify,
           }
         : undefined
-      await connection.connectBle(selectedBle.value, config)
-    } else if (method.value === 'spp') {
-      await connection.connectSpp(selectedSpp.value)
+      await connection.connectBle(device.ble, config)
+    } else {
+      await connection.connectSpp(device.port?.path ?? device.detail)
     }
   } catch {
     /* the store reports a toast and keeps lastError */
@@ -308,7 +311,7 @@ async function startBleScan() {
       })
       bleDevices.value = sorted
       scanned.value = true
-      if (!selectedBle.value && sorted.length) selectedBle.value = sorted[0]
+      syncSelection()
     }, 12000).catch((error) => {
       scanning.value = false
       const message = errorMessage(error)
@@ -340,14 +343,8 @@ function openDocs() {
 }
 
 watch(
-  () => connection.usbPorts,
-  () => syncSelections(),
-  { deep: true },
-)
-
-watch(
-  () => connection.sppPorts,
-  () => syncSelections(),
+  unifiedDevices,
+  () => syncSelection(),
   { deep: true },
 )
 
@@ -372,18 +369,13 @@ watch(
 
 onMounted(async () => {
   await platform.init()
-  if (!capabilities.value.usbSerial && capabilities.value.ble) method.value = 'ble'
-  else if (!capabilities.value.usbSerial && capabilities.value.spp) method.value = 'spp'
-  else method.value = settings.preferredTransport
-  if (!methods.value.find((entry) => entry.id === method.value)?.available) {
-    method.value = methods.value.find((entry) => entry.available)?.id ?? 'usb'
-  }
+  if (isAndroid) await ensureBluetoothPermissions().catch(() => {})
   if (capabilities.value.usbSerial || capabilities.value.spp) await connection.refreshPorts()
-  initialiseSelections()
+  syncSelection()
   clockTimer = window.setInterval(() => {
     now.value = Date.now()
   }, 5000)
-  if (method.value === 'ble') {
+  if (capabilities.value.ble) {
     void getBluetoothState().then((state) => {
       bluetoothState.value = state
     })
@@ -446,237 +438,127 @@ onUnmounted(() => {
         </div>
 
         <template v-if="!isConnected">
-          <div class="method-tabs">
-            <button
-              v-for="entry in methods"
-              :key="entry.id"
-              class="method-tab"
-              :class="{
-                'method-tab--active': method === entry.id,
-                'method-tab--disabled': !entry.available,
-              }"
-              @click="selectMethod(entry.id)"
-            >
-              <component :is="entry.icon" :size="15" />
-              <span>{{ entry.label }}</span>
-              <span class="method-tab__dot" :class="{ 'method-tab__dot--on': entry.available }" />
-            </button>
-          </div>
-
           <div class="connect-panel">
-            <div v-if="!methods.find((entry) => entry.id === method)?.available" class="unsupported">
-              <div class="unsupported__icon">
-                <Info :size="20" />
-              </div>
+            <div class="connect-panel__head">
               <div>
-                <strong>
-                  {{
-                    method === 'usb'
-                      ? settings.t('home.usbUnsupported')
-                      : method === 'ble'
-                        ? settings.t('home.bleUnsupported')
-                        : settings.t('home.sppUnsupported')
-                  }}
-                </strong>
-                <p>
-                  {{
-                    method === 'usb'
-                      ? settings.t('home.usbUnsupportedBody')
-                      : method === 'ble'
-                        ? settings.t('home.bleUnsupportedBody')
-                        : settings.t('home.sppUnsupportedBody')
-                  }}
-                </p>
+                <span class="connect-panel__title">{{ settings.t('home.devicesTitle') }}</span>
+                <span class="connect-panel__hint">{{ settings.t('home.devicesHint') }}</span>
               </div>
-            </div>
-
-            <template v-else-if="method === 'usb'">
-              <div class="connect-panel__head">
-                <div>
-                  <span class="connect-panel__title">{{ settings.t('home.usbTitle') }}</span>
-                  <span class="connect-panel__hint">{{ settings.t('home.usbHint') }}</span>
-                </div>
+              <div class="connect-panel__actions">
                 <button
                   class="btn btn--ghost btn--sm"
-                  :disabled="connection.loadingPorts"
-                  @click="connection.refreshPorts().then(initialiseSelections)"
+                  :disabled="connection.loadingPorts || refreshing"
+                  @click="refreshAll"
                 >
-                  <RefreshCw :size="14" :class="{ spinning: connection.loadingPorts }" />
+                  <RefreshCw :size="14" :class="{ spinning: connection.loadingPorts || refreshing }" />
                   {{ settings.t('home.usbScan') }}
                 </button>
-              </div>
-
-              <div v-if="connection.loadingPorts && !connection.usbPorts.length" class="port-skeletons">
-                <div v-for="index in 2" :key="index" class="skeleton port-skeleton" />
-              </div>
-              <div v-else-if="connection.usbPorts.length" class="device-list">
                 <button
-                  v-for="port in connection.usbPorts"
-                  :key="port.path"
-                  class="device-option"
-                  :class="{ 'device-option--selected': selectedUsb === port.path }"
-                  @click="selectedUsb = port.path"
+                  v-if="capabilities.ble"
+                  class="btn btn--sm"
+                  :class="scanning ? 'btn--outline' : 'btn--ghost'"
+                  @click="startBleScan"
                 >
-                  <span class="device-option__icon"><Usb :size="17" /></span>
-                  <span class="device-option__main">
-                    <strong>{{ port.product || port.path }}</strong>
-                    <span class="mono">{{ port.path }}<template v-if="port.manufacturer"> · {{ port.manufacturer }}</template></span>
-                  </span>
-                  <span v-if="port.serialNumber" class="device-option__serial mono">{{ port.serialNumber }}</span>
-                  <span class="device-option__check" :class="{ 'device-option__check--on': selectedUsb === port.path }">
-                    <Check :size="13" />
-                  </span>
-                </button>
-              </div>
-              <div v-else class="mini-empty">
-                <Cable :size="20" />
-                <div>
-                  <strong>{{ settings.t('home.usbEmpty') }}</strong>
-                  <p>{{ settings.t('home.usbEmptyHint') }}</p>
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="method === 'ble'">
-              <div class="connect-panel__head">
-                <div>
-                  <span class="connect-panel__title">{{ settings.t('home.bleTitle') }}</span>
-                  <span class="connect-panel__hint">{{ settings.t('home.bleHint') }}</span>
-                </div>
-                <button class="btn btn--sm" :class="scanning ? 'btn--outline' : 'btn--primary'" @click="startBleScan">
                   <ScanLine v-if="!scanning" :size="14" />
                   <span v-else class="spinner spinner--sm" />
                   {{ scanning ? settings.t('home.bleScanning') : settings.t('home.bleScan') }}
                 </button>
               </div>
+            </div>
 
-              <div v-if="bleDevices.length" class="device-list device-list--ble">
-                <button
-                  v-for="device in bleDevices"
-                  :key="device.address"
-                  class="device-option"
-                  :class="{ 'device-option--selected': selectedBle?.address === device.address }"
-                  @click="selectedBle = device"
+            <div v-if="unifiedDevices.length" class="device-list device-list--unified">
+              <button
+                v-for="device in unifiedDevices"
+                :key="device.id"
+                class="device-option"
+                :class="{ 'device-option--selected': selectedId === device.id }"
+                @click="selectDevice(device)"
+              >
+                <span
+                  class="device-option__icon"
+                  :class="{
+                    'device-option__icon--usb': device.kind === 'usb',
+                    'device-option__icon--ble': device.kind !== 'usb',
+                  }"
                 >
-                  <span class="device-option__icon device-option__icon--ble"><Bluetooth :size="17" /></span>
-                  <span class="device-option__main">
-                    <strong>
-                      {{ device.name }}
-                      <span v-if="/pm3|proxmark/i.test(device.name)" class="mini-badge">PM3</span>
-                    </strong>
-                    <span class="mono">{{ device.address }}</span>
-                  </span>
-                  <span class="signal" :title="settings.t('home.rssi', { rssi: device.rssi })">
+                  <Usb v-if="device.kind === 'usb'" :size="17" />
+                  <Bluetooth v-else-if="device.kind === 'spp'" :size="17" />
+                  <Radio v-else :size="17" />
+                </span>
+                <span class="device-option__main">
+                  <strong>
+                    {{ device.name }}
+                    <span class="device-kind">{{ kindLabel(device.kind) }}</span>
+                  </strong>
+                  <span class="mono">{{ device.detail }}</span>
+                </span>
+                <span class="device-option__meta">
+                  <span v-if="device.kind === 'ble' && device.ble" class="signal" :title="device.meta">
                     <i
                       v-for="bar in 4"
                       :key="bar"
                       class="signal__bar"
-                      :class="{ 'signal__bar--on': bar <= signalBars(device.rssi) }"
+                      :class="{ 'signal__bar--on': bar <= signalBars(device.ble.rssi) }"
                       :style="{ height: `${5 + bar * 3}px` }"
                     />
-                    <em class="mono">{{ device.rssi }}</em>
                   </span>
-                  <span class="device-option__check" :class="{ 'device-option__check--on': selectedBle?.address === device.address }">
-                    <Check :size="13" />
-                  </span>
-                </button>
+                  <span v-if="device.meta" class="mono device-option__meta-text">{{ device.meta }}</span>
+                </span>
+                <span class="device-option__check" :class="{ 'device-option__check--on': selectedId === device.id }">
+                  <Check :size="13" />
+                </span>
+              </button>
+            </div>
+            <div v-else class="mini-empty">
+              <Cable :size="20" />
+              <div>
+                <strong>{{ settings.t('home.noDevices') }}</strong>
+                <p>{{ settings.t('home.noDevicesHint') }}</p>
               </div>
-              <div v-else-if="scanning" class="scan-state">
-                <div class="scan-orbit"><span /><span /><span /></div>
-                <span>{{ settings.t('home.bleScanning') }}</span>
-              </div>
-              <div v-else class="mini-empty">
-                <Bluetooth :size="20" />
-                <div>
-                  <strong>{{ scanned ? settings.t('home.bleEmpty') : settings.t('home.bleTitle') }}</strong>
-                  <p>{{ settings.t('home.bleEmptyHint') }}</p>
-                </div>
-              </div>
+            </div>
 
-              <div class="advanced">
-                <button class="advanced__toggle" @click="advancedOpen = !advancedOpen">
-                  <SlidersHorizontal :size="14" />
-                  <span>{{ settings.t('home.bleAdvanced') }}</span>
-                  <ChevronDown :size="14" :class="{ rotated: advancedOpen }" />
-                </button>
-                <div v-if="advancedOpen" class="advanced__body">
-                  <div class="setting-line">
-                    <div>
-                      <strong>{{ settings.t('home.bleAuto') }}</strong>
-                      <span>{{ settings.t('home.bleBridgeNote') }}</span>
-                    </div>
-                    <button
-                      class="switch"
-                      :class="{ 'switch--on': useCustomUart }"
-                      role="switch"
-                      :aria-checked="useCustomUart"
-                      @click="useCustomUart = !useCustomUart"
-                    />
+            <div v-if="capabilities.ble" class="advanced">
+              <button class="advanced__toggle" @click="advancedOpen = !advancedOpen">
+                <SlidersHorizontal :size="14" />
+                <span>{{ settings.t('home.bleAdvanced') }}</span>
+                <ChevronDown :size="14" :class="{ rotated: advancedOpen }" />
+              </button>
+              <div v-if="advancedOpen" class="advanced__body">
+                <div class="setting-line">
+                  <div>
+                    <strong>{{ settings.t('home.bleAuto') }}</strong>
+                    <span>{{ settings.t('home.bleBridgeNote') }}</span>
                   </div>
-                  <div v-if="useCustomUart" class="uuid-grid">
-                    <label class="field">
-                      <span class="field-label">{{ settings.t('home.bleService') }}</span>
-                      <input v-model="uart.service" class="input input--mono" spellcheck="false" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">{{ settings.t('home.bleRx') }}</span>
-                      <input v-model="uart.write" class="input input--mono" spellcheck="false" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">{{ settings.t('home.bleTx') }}</span>
-                      <input v-model="uart.notify" class="input input--mono" spellcheck="false" />
-                    </label>
-                  </div>
-                  <div class="bridge-note mono">
-                    <Radio :size="12" />
-                    {{ bluetoothState }} · {{ settings.t('home.bleBridge') }}
-                  </div>
+                  <button
+                    class="switch"
+                    :class="{ 'switch--on': useCustomUart }"
+                    role="switch"
+                    :aria-checked="useCustomUart"
+                    @click="useCustomUart = !useCustomUart"
+                  />
+                </div>
+                <div v-if="useCustomUart" class="uuid-grid">
+                  <label class="field">
+                    <span class="field-label">{{ settings.t('home.bleService') }}</span>
+                    <input v-model="uart.service" class="input input--mono" spellcheck="false" />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">{{ settings.t('home.bleRx') }}</span>
+                    <input v-model="uart.write" class="input input--mono" spellcheck="false" />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">{{ settings.t('home.bleTx') }}</span>
+                    <input v-model="uart.notify" class="input input--mono" spellcheck="false" />
+                  </label>
+                </div>
+                <div class="bridge-note mono">
+                  <Radio :size="12" />
+                  {{ bluetoothState }} · {{ settings.t('home.bleBridge') }}
                 </div>
               </div>
-            </template>
+            </div>
 
-            <template v-else>
-              <div class="connect-panel__head">
-                <div>
-                  <span class="connect-panel__title">{{ settings.t('home.sppTitle') }}</span>
-                  <span class="connect-panel__hint">{{ settings.t('home.sppHint') }}</span>
-                </div>
-                <button class="btn btn--ghost btn--sm" @click="connection.refreshPorts().then(initialiseSelections)">
-                  <RefreshCw :size="14" />
-                  {{ settings.t('home.usbScan') }}
-                </button>
-              </div>
-
-              <div v-if="connection.sppPorts.length" class="device-list">
-                <button
-                  v-for="port in connection.sppPorts"
-                  :key="port.path"
-                  class="device-option"
-                  :class="{ 'device-option--selected': selectedSpp === port.path }"
-                  @click="selectedSpp = port.path"
-                >
-                  <span class="device-option__icon device-option__icon--ble"><Bluetooth :size="17" /></span>
-                  <span class="device-option__main">
-                    <strong>{{ port.product || port.path }}</strong>
-                    <span class="mono">{{ port.path }}<template v-if="port.manufacturer"> · {{ port.manufacturer }}</template></span>
-                  </span>
-                  <span class="badge">{{ settings.t('home.paired') }}</span>
-                  <span class="device-option__check" :class="{ 'device-option__check--on': selectedSpp === port.path }">
-                    <Check :size="13" />
-                  </span>
-                </button>
-              </div>
-              <div v-else class="mini-empty">
-                <Bluetooth :size="20" />
-                <div>
-                  <strong>{{ settings.t('home.sppEmpty') }}</strong>
-                  <p>{{ settings.t('home.sppEmptyHint') }}</p>
-                </div>
-              </div>
-
-            </template>
-
-            <footer v-if="methods.find((entry) => entry.id === method)?.available" class="connect-panel__foot">
+            <footer class="connect-panel__foot">
               <span class="connect-panel__note">
                 <ShieldCheck :size="14" />
                 {{ settings.t('home.heroConnectBody') }}
@@ -695,7 +577,7 @@ onUnmounted(() => {
                 <strong>{{ settings.t('home.connectingTitle') }}</strong>
                 <p>
                   {{
-                    method === 'spp'
+                    selectedDevice?.kind === 'spp'
                       ? settings.t('home.connectingSppHint')
                       : settings.t('home.connectingHint')
                   }}
@@ -705,7 +587,6 @@ onUnmounted(() => {
             </div>
           </div>
         </template>
-
         <template v-else>
           <div class="connected-strip">
             <div class="connected-strip__main">
@@ -1047,6 +928,55 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+
+.connect-panel__actions {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.device-list--unified {
+  max-height: 340px;
+}
+
+.device-option__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 96px;
+  flex: none;
+}
+
+.device-option__meta-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.device-kind {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-inset);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.device-option__icon--usb {
+  background: var(--secondary-dim);
+  color: var(--secondary);
 }
 
 .connect-panel__title {

@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
@@ -240,6 +241,15 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
         }.also { it.start() }
     }
 
+    private fun isLikelySpp(device: android.bluetooth.BluetoothDevice): Boolean {
+        val major = device.bluetoothClass?.majorDeviceClass ?: return true
+        return major != BluetoothClass.Device.Major.AUDIO_VIDEO &&
+            major != BluetoothClass.Device.Major.PERIPHERAL &&
+            major != BluetoothClass.Device.Major.IMAGING &&
+            major != BluetoothClass.Device.Major.WEARABLE &&
+            major != BluetoothClass.Device.Major.HEALTH
+    }
+
     @Command
     fun listSpp(invoke: Invoke) {
         try {
@@ -250,6 +260,7 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
             }
             val devices = JSArray()
             for (device in adapter.bondedDevices) {
+                if (!isLikelySpp(device)) continue
                 val item = JSObject()
                 item.put("address", device.address)
                 item.put("name", device.name ?: device.address)
