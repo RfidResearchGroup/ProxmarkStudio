@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Activity,
+  Check,
   ChevronRight,
   FolderOpen,
   Github,
@@ -48,18 +49,46 @@ const statusClass = computed(() => {
 
 const version = '0.1.0'
 
-const themes: ThemeName[] = ['midnight', 'carbon', 'nebula']
+const themes: ThemeName[] = ['abyss', 'midnight', 'carbon', 'nebula']
+
+const languageOpen = ref(false)
+const languageRoot = ref<HTMLElement | null>(null)
+const languageOptions = computed(() => [
+  { id: 'system' as const, label: settings.t('settings.followSystem') },
+  { id: 'en' as const, label: settings.t('settings.english') },
+  { id: 'zh' as const, label: settings.t('settings.chinese') },
+])
 
 function cycleTheme() {
   const index = themes.indexOf(settings.theme)
   settings.setTheme(themes[(index + 1) % themes.length])
 }
 
-function cycleLocale() {
-  const sequence = ['system', 'en', 'zh'] as const
-  const index = sequence.indexOf(settings.localePreference)
-  settings.setLocale(sequence[(index + 1) % sequence.length])
+function selectLocale(locale: 'system' | 'en' | 'zh') {
+  settings.setLocale(locale)
+  languageOpen.value = false
 }
+
+function onDocumentPointer(event: MouseEvent) {
+  if (!languageOpen.value) return
+  if (languageRoot.value && !languageRoot.value.contains(event.target as Node)) {
+    languageOpen.value = false
+  }
+}
+
+function onDocumentKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') languageOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointer)
+  document.addEventListener('keydown', onDocumentKey)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointer)
+  document.removeEventListener('keydown', onDocumentKey)
+})
 
 function openRepository() {
   void openExternal(APP_REPOSITORY)
@@ -124,9 +153,33 @@ function openRepository() {
 
     <footer class="sidebar__foot">
       <div class="foot-actions">
-        <button class="icon-btn icon-btn--bordered" :title="settings.t('shell.language')" @click="cycleLocale">
-          <Languages :size="16" />
-        </button>
+        <div ref="languageRoot" class="language-wrap">
+          <button
+            class="icon-btn icon-btn--bordered"
+            :title="settings.t('shell.language')"
+            aria-haspopup="menu"
+            :aria-expanded="languageOpen"
+            @click="languageOpen = !languageOpen"
+          >
+            <Languages :size="16" />
+          </button>
+          <Transition name="fade">
+            <div v-if="languageOpen" class="language-menu" role="menu">
+              <button
+                v-for="option in languageOptions"
+                :key="option.id"
+                class="language-menu__item"
+                :class="{ 'language-menu__item--active': settings.localePreference === option.id }"
+                role="menuitemradio"
+                :aria-checked="settings.localePreference === option.id"
+                @click="selectLocale(option.id)"
+              >
+                <span>{{ option.label }}</span>
+                <Check v-if="settings.localePreference === option.id" :size="14" />
+              </button>
+            </div>
+          </Transition>
+        </div>
         <button class="icon-btn icon-btn--bordered" :title="settings.t('shell.theme')" @click="cycleTheme">
           <Palette :size="16" />
         </button>
@@ -155,7 +208,7 @@ function openRepository() {
   padding: 26px 18px 18px;
   background: linear-gradient(180deg, rgba(9, 15, 26, 0.86), rgba(5, 8, 15, 0.94));
   border-right: 1px solid var(--border);
-  overflow: hidden;
+  overflow: visible;
   flex: none;
   z-index: 10;
 }
@@ -203,12 +256,13 @@ function openRepository() {
 .brand__sub {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-top: 4px;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
   color: var(--muted);
 }
 
@@ -227,7 +281,7 @@ function openRepository() {
 .nav__label {
   padding: 0 10px 9px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -364,7 +418,7 @@ function openRepository() {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed var(--border);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -385,18 +439,67 @@ function openRepository() {
   flex: 1;
 }
 
+.language-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.language-wrap .icon-btn {
+  width: 100%;
+}
+
+.language-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 188px;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--panel-solid);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+}
+
+.language-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 35px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.language-menu__item:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.language-menu__item--active {
+  color: var(--accent);
+  background: var(--accent-faint);
+}
+
 .foot-meta {
   display: flex;
   align-items: center;
   gap: 7px;
   margin-top: 12px;
   padding: 0 3px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
 .foot-meta .mono {
-  font-size: 9.5px;
+  font-size: 11.5px;
 }
 
 .foot-dot {

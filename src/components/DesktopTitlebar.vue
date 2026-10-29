@@ -5,11 +5,9 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Copy, Minus, Square, X } from 'lucide-vue-next'
 import BrandMark from './BrandMark.vue'
 import { useSettingsStore } from '@/stores/settings'
-import { useConnectionStore } from '@/stores/connection'
 
 const route = useRoute()
 const settings = useSettingsStore()
-const connection = useConnectionStore()
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
 let unlisten: (() => void) | null = null
@@ -19,20 +17,6 @@ const pageName = computed(() => {
   if (route.name === 'files') return settings.t('nav.files')
   if (route.name === 'settings') return settings.t('nav.settings')
   return settings.t('nav.home')
-})
-
-const stateLabel = computed(() => {
-  if (connection.isConnected) return settings.t('shell.statusOnline')
-  if (connection.status === 'connecting') return settings.t('shell.statusBusy')
-  if (connection.status === 'error') return settings.t('home.statusError')
-  return settings.t('shell.statusIdle')
-})
-
-const statusDotClass = computed(() => {
-  if (connection.isConnected) return 'status-dot--online'
-  if (connection.status === 'connecting') return 'status-dot--busy'
-  if (connection.status === 'error') return 'status-dot--error'
-  return ''
 })
 
 async function refreshMaximized() {
@@ -80,12 +64,6 @@ onUnmounted(() => {
     </div>
 
     <div class="titlebar__drag" data-tauri-drag-region />
-
-    <div class="titlebar__status" data-tauri-drag-region>
-      <span class="status-dot" :class="statusDotClass" />
-      <span>{{ stateLabel }}</span>
-      <span v-if="connection.isConnected" class="titlebar__port mono">{{ connection.portLabel }}</span>
-    </div>
 
     <div class="window-controls" @dblclick.stop>
       <button class="window-control" :title="settings.t('window.minimize')" :aria-label="settings.t('window.minimize')" @click.stop="minimize">
@@ -144,7 +122,7 @@ onUnmounted(() => {
 
 .titlebar__name {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--text-soft);
@@ -157,12 +135,12 @@ onUnmounted(() => {
 
 .titlebar__slash {
   margin-left: 3px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--faint);
 }
 
 .titlebar__section {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
 }
@@ -170,26 +148,6 @@ onUnmounted(() => {
 .titlebar__drag {
   flex: 1;
   height: 100%;
-}
-
-.titlebar__status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 100%;
-  padding: 0 14px;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  color: var(--faint);
-  white-space: nowrap;
-}
-
-.titlebar__port {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
 }
 
 .window-controls {

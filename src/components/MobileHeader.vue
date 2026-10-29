@@ -110,7 +110,7 @@ const statusLabel = () => {
 .mobile-brand__text em {
   margin-top: 3px;
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
 }
@@ -132,7 +132,7 @@ const statusLabel = () => {
   border: 1px solid var(--border-accent);
   background: var(--accent-dim);
   color: var(--accent);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 

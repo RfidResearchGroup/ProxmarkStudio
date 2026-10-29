@@ -795,7 +795,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1031,7 +1031,7 @@ onUnmounted(() => {
 }
 
 .device-option__main span {
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1047,12 +1047,12 @@ onUnmounted(() => {
   background: var(--accent-dim);
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 7px;
+  font-size: 9.5px;
   letter-spacing: 0.08em;
 }
 
 .device-option__serial {
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--faint);
   display: none;
 }
@@ -1093,7 +1093,7 @@ onUnmounted(() => {
 
 .signal em {
   margin-left: 4px;
-  font-size: 8px;
+  font-size: 11px;
   font-style: normal;
   color: var(--faint);
 }
@@ -1129,7 +1129,7 @@ onUnmounted(() => {
 
 .mini-empty p {
   margin-top: 3px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: var(--faint);
 }
@@ -1199,7 +1199,7 @@ onUnmounted(() => {
   width: 100%;
   padding: 10px 15px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 550;
 }
 
@@ -1232,7 +1232,7 @@ onUnmounted(() => {
 .setting-line span {
   display: block;
   margin-top: 2px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
   color: var(--faint);
 }
@@ -1244,12 +1244,12 @@ onUnmounted(() => {
 }
 
 .uuid-grid .field-label {
-  font-size: 9px;
+  font-size: 11.5px;
 }
 
 .uuid-grid .input {
   height: 34px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .bridge-note {
@@ -1257,7 +1257,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   margin-top: 9px;
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--faint);
 }
 
@@ -1279,14 +1279,14 @@ onUnmounted(() => {
 }
 
 .spp-mac__label span:first-child {
-  font-size: 9px;
+  font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .spp-mac__label span:last-child {
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -1310,7 +1310,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   max-width: 260px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.4;
   color: var(--faint);
 }
@@ -1373,7 +1373,7 @@ onUnmounted(() => {
 
 .connected-strip__label {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
@@ -1389,7 +1389,7 @@ onUnmounted(() => {
 }
 
 .connected-strip__meta {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -1415,7 +1415,7 @@ onUnmounted(() => {
   border-radius: 7px;
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.12);
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
@@ -1475,7 +1475,7 @@ onUnmounted(() => {
   display: block;
   margin-bottom: 5px;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1487,7 +1487,7 @@ onUnmounted(() => {
 }
 
 .detail-column .info-row > strong.mono {
-  font-size: 9.5px;
+  font-size: 11.5px;
 }
 
 .detail-empty {
@@ -1495,14 +1495,14 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   padding: 12px 0;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: var(--muted);
 }
 
 .detail-empty .mono {
   color: var(--danger);
-  font-size: 9px;
+  font-size: 11.5px;
 }
 
 .raw-details--wide {
@@ -1559,7 +1559,7 @@ onUnmounted(() => {
 }
 
 .info-row > span {
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--faint);
   flex: none;
 }
@@ -1573,7 +1573,7 @@ onUnmounted(() => {
 }
 
 .info-row > strong.mono {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--accent);
 }
 
@@ -1593,7 +1593,7 @@ onUnmounted(() => {
   justify-content: space-between;
   cursor: pointer;
   list-style: none;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--faint);
 }
 
@@ -1618,7 +1618,7 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   background: var(--bg-deep);
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.65;
   color: var(--muted);
   white-space: pre-wrap;
@@ -1646,7 +1646,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   margin-bottom: 7px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1672,7 +1672,7 @@ onUnmounted(() => {
 .tip-row__index {
   padding-top: 1px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--accent);
   opacity: 0.7;
   flex: none;
@@ -1754,7 +1754,7 @@ onUnmounted(() => {
 
 .quick-card em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
   color: var(--faint);
 }
@@ -1811,7 +1811,7 @@ onUnmounted(() => {
 }
 
 .session-state span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--faint);
 }
 
@@ -1834,7 +1834,7 @@ onUnmounted(() => {
 }
 
 .copy-line span {
-  font-size: 8.5px;
+  font-size: 11px;
 }
 
 .workspace-card {
@@ -1865,7 +1865,7 @@ onUnmounted(() => {
 .workspace-card__path {
   margin-top: 11px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.45;
   color: var(--text-soft);
   word-break: break-all;
@@ -1876,7 +1876,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   margin-top: 5px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -1886,7 +1886,7 @@ onUnmounted(() => {
   gap: 5px;
   margin-top: 12px;
   padding: 0;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--accent);
 }
@@ -1919,13 +1919,13 @@ onUnmounted(() => {
 }
 
 .release-link__button strong {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
 .release-link__button em {
   font-style: normal;
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 

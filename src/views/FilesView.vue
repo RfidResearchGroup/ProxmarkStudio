@@ -818,7 +818,7 @@ onUnmounted(() => {
 .workspace-head__label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--faint);
@@ -826,7 +826,7 @@ onUnmounted(() => {
 
 .workspace-head__value {
   margin-top: 2px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--text-soft);
   word-break: break-all;
 }
@@ -836,7 +836,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   flex: none;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -973,7 +973,7 @@ onUnmounted(() => {
   padding: 0;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -1048,7 +1048,7 @@ onUnmounted(() => {
 .file-row__meta-mobile {
   display: none;
   font-style: normal;
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -1085,13 +1085,13 @@ onUnmounted(() => {
 }
 
 .file-row__size {
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
   text-align: right;
 }
 
 .file-row__date {
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -1126,7 +1126,7 @@ onUnmounted(() => {
   padding: 10px 16px;
   border-top: 1px solid var(--border);
   color: var(--faint);
-  font-size: 9px;
+  font-size: 11.5px;
 }
 
 .browser__foot-spacer {
@@ -1233,7 +1233,7 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--border);
   background: var(--warning-dim);
   color: var(--warning);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .viewer__content {
@@ -1242,7 +1242,7 @@ onUnmounted(() => {
   padding: 18px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.6;
   color: var(--text-soft);
   white-space: pre;
@@ -1284,11 +1284,11 @@ onUnmounted(() => {
   padding: 8px 16px;
   border-top: 1px solid var(--border);
   color: var(--faint);
-  font-size: 8.5px;
+  font-size: 11px;
 }
 
 .viewer__status .mono {
-  font-size: 8.5px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1384,7 +1384,7 @@ onUnmounted(() => {
   border-bottom: 1px dashed var(--border);
   border-radius: 0;
   color: var(--faint);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .move-picker__up:disabled,
@@ -1407,7 +1407,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 84px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -1419,12 +1419,12 @@ onUnmounted(() => {
   padding: 8px 12px;
   border-top: 1px solid var(--border);
   background: var(--accent-faint);
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
 .move-picker__target .mono {
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--accent);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1437,13 +1437,13 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 107, 129, 0.24);
   background: var(--danger-dim);
   color: var(--danger);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.5;
 }
 
 .move-target-note {
   margin-right: auto;
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--faint);
   max-width: 48%;
   overflow: hidden;
@@ -1549,7 +1549,7 @@ onUnmounted(() => {
 
   .viewer__content {
     padding: 12px;
-    font-size: 9.5px;
+    font-size: 11.5px;
   }
 
   .viewer__status {

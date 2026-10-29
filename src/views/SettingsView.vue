@@ -547,7 +547,7 @@ onMounted(async () => {
 }
 
 .autosave {
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -719,7 +719,7 @@ onMounted(async () => {
 
 .theme-option__text em {
   font-style: normal;
-  font-size: 9px;
+  font-size: 11.5px;
   line-height: 1.35;
   color: var(--faint);
 }
@@ -743,7 +743,7 @@ onMounted(async () => {
   align-items: center;
   gap: 5px;
   margin-top: 11px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
@@ -786,7 +786,7 @@ onMounted(async () => {
   background: var(--panel-strong);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11.5px;
   font-weight: 600;
   flex: none;
 }
@@ -803,7 +803,7 @@ onMounted(async () => {
 }
 
 .language-option__text strong {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text-soft);
   white-space: nowrap;
@@ -811,7 +811,7 @@ onMounted(async () => {
 
 .language-option__text em {
   font-style: normal;
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--faint);
   white-space: nowrap;
   overflow: hidden;
@@ -849,13 +849,13 @@ onMounted(async () => {
 }
 
 .resource-summary__row > span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--faint);
   flex: none;
 }
 
 .resource-summary__row > strong {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 550;
   color: var(--text-soft);
   text-align: right;
@@ -869,7 +869,7 @@ onMounted(async () => {
 }
 
 .resource-summary__row > strong.path {
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -891,7 +891,7 @@ onMounted(async () => {
 .release-card__eyebrow {
   display: block;
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--faint);
@@ -910,7 +910,7 @@ onMounted(async () => {
   align-items: center;
   gap: 5px;
   margin-top: 7px;
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -919,7 +919,7 @@ onMounted(async () => {
 
 .release-card__sha {
   margin-top: 4px;
-  font-size: 7.5px;
+  font-size: 10px;
   color: var(--faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -932,7 +932,7 @@ onMounted(async () => {
   gap: 8px;
   border-color: var(--border);
   background: var(--panel-inset);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -947,13 +947,13 @@ onMounted(async () => {
 
 .release-card--empty strong {
   display: block;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--warning);
 }
 
 .release-card--empty p {
   margin-top: 3px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.45;
   color: var(--muted);
 }
@@ -967,12 +967,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
 .download-progress__head .mono {
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--accent);
 }
 
@@ -998,7 +998,7 @@ onMounted(async () => {
   align-items: flex-start;
   gap: 6px;
   margin-top: 9px;
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: var(--danger);
 }
@@ -1038,7 +1038,7 @@ onMounted(async () => {
 }
 
 .preference-row span {
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.45;
   color: var(--faint);
 }
@@ -1054,7 +1054,7 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px dashed var(--border);
   background: var(--panel-inset);
-  font-size: 9px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: var(--faint);
 }
@@ -1067,7 +1067,7 @@ onMounted(async () => {
 
 .uuid-fields .input {
   height: 36px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .inline-actions {
@@ -1102,7 +1102,7 @@ onMounted(async () => {
 
 .about-brand span {
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--faint);
 }
@@ -1126,12 +1126,12 @@ onMounted(async () => {
 }
 
 .about-rows span {
-  font-size: 9.5px;
+  font-size: 11.5px;
   color: var(--faint);
 }
 
 .about-rows strong {
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 550;
   color: var(--text-soft);
   text-align: right;
@@ -1153,7 +1153,7 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11.5px;
   font-weight: 550;
 }
 
@@ -1167,14 +1167,14 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-inset);
-  font-size: 8.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--text-soft);
   word-break: break-all;
 }
 
 .gpl-card .panel-body > p {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.65;
   color: var(--muted);
 }
@@ -1186,7 +1186,7 @@ onMounted(async () => {
   margin-top: 10px;
   padding: 0;
   color: var(--accent);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 

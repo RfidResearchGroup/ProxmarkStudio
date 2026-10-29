@@ -21,7 +21,7 @@ import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 import { executeStream, sendInput } from '@/services/pm3'
-import { copyText, errorMessage, formatDuration } from '@/utils/format'
+import { copyText, errorMessage } from '@/utils/format'
 
 const router = useRouter()
 const connection = useConnectionStore()
@@ -35,12 +35,10 @@ const lastCommand = ref('')
 const historyCount = ref(0)
 const fullscreen = ref(false)
 const reconnecting = ref(false)
-const now = ref(Date.now())
 
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
 let resizeObserver: ResizeObserver | null = null
-let clockTimer: number | null = null
 let lineBuffer = ''
 let runningBuffer = ''
 let colorPending = ''
@@ -90,11 +88,6 @@ function flushOutput() {
 }
 
 const prompt = '\x1b[38;2;76;240;200m pm3 \x1b[0m\x1b[38;2;86;102;127m›\x1b[0m '
-
-const connectionAge = computed(() => {
-  if (!connection.connectedAt) return ''
-  return formatDuration(Math.max(0, Math.floor((now.value - connection.connectedAt) / 1000)))
-})
 
 const statusText = computed(() => {
   if (running.value) return settings.t('terminal.running')
@@ -173,7 +166,7 @@ function initialiseTerminal() {
     cursorBlink: true,
     cursorStyle: 'bar',
     fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || 'monospace',
-    fontSize: window.innerWidth < 640 ? 11 : 12.5,
+    fontSize: window.innerWidth < 640 ? 12 : 13.5,
     lineHeight: 1.4,
     letterSpacing: 0.1,
     scrollback: 8000,
@@ -488,9 +481,6 @@ watch(
 )
 
 onMounted(async () => {
-  clockTimer = window.setInterval(() => {
-    now.value = Date.now()
-  }, 5000)
   document.addEventListener('fullscreenchange', onFullscreenChange)
   if (connection.isConnected) {
     await nextTick()
@@ -499,7 +489,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (clockTimer) window.clearInterval(clockTimer)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
   resizeObserver?.disconnect()
   term?.dispose()
@@ -522,15 +511,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="terminal-conn" :class="{ 'terminal-conn--offline': !connection.isConnected }">
-        <span class="status-dot" :class="connection.isConnected ? 'status-dot--online' : 'status-dot--error'" />
-        <span class="terminal-conn__text">
-          {{ connection.isConnected ? connection.portLabel : settings.t('terminal.disconnected') }}
-        </span>
-        <span v-if="connection.isConnected" class="terminal-conn__sep">·</span>
-        <span v-if="connection.isConnected" class="terminal-conn__age mono">{{ connectionAge }}</span>
-      </div>
-
       <div class="terminal-actions">
         <button class="icon-btn icon-btn--bordered" :title="settings.t('terminal.reconnect')" :disabled="reconnecting" @click="reconnect">
           <RefreshCw :size="16" :class="{ spinning: reconnecting }" />
@@ -550,18 +530,6 @@ onUnmounted(() => {
 
     <div v-if="connection.isConnected" class="terminal-body">
       <div class="terminal-window">
-        <div class="terminal-window__chrome">
-          <span class="chrome-dot chrome-dot--red" />
-          <span class="chrome-dot chrome-dot--amber" />
-          <span class="chrome-dot chrome-dot--green" />
-          <span class="terminal-window__title mono">
-            {{ connection.portLabel }} — pm3
-          </span>
-          <span v-if="running" class="terminal-window__running">
-            <span class="spinner spinner--sm" />
-            {{ settings.t('terminal.running') }}
-          </span>
-        </div>
         <div ref="terminalHost" class="terminal-host" @click="focusTerminal" />
       </div>
     </div>
@@ -672,45 +640,9 @@ onUnmounted(() => {
   margin-top: 2px;
   font-family: var(--font-mono);
   font-style: normal;
-  font-size: 7.5px;
-  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   color: var(--faint);
-}
-
-.terminal-conn {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  margin-left: 10px;
-  padding: 5px 10px;
-  border-radius: 99px;
-  border: 1px solid var(--border-accent);
-  background: var(--accent-faint);
-  font-size: 10px;
-  color: var(--accent);
-}
-
-.terminal-conn--offline {
-  border-color: var(--border);
-  background: var(--panel-inset);
-  color: var(--muted);
-}
-
-.terminal-conn__text {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.terminal-conn__sep {
-  color: var(--faint);
-}
-
-.terminal-conn__age {
-  font-size: 9px;
-  color: var(--muted);
 }
 
 .terminal-actions {
@@ -730,7 +662,7 @@ onUnmounted(() => {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 12px 14px 0;
+  padding: 0;
 }
 
 .terminal-window {
@@ -739,57 +671,10 @@ onUnmounted(() => {
   flex-direction: column;
   height: auto;
   min-height: 0;
-  border: 1px solid var(--border);
-  border-bottom: 0;
-  border-radius: 14px 14px 0 0;
+  border: 0;
+  border-radius: 0;
   background: #050810;
   overflow: hidden;
-  box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.28);
-}
-
-.terminal-window__chrome {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 13px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(19, 29, 46, 0.72), rgba(11, 18, 30, 0.72));
-  flex: none;
-}
-
-.chrome-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
-.chrome-dot--red {
-  background: #ff6b81;
-  opacity: 0.7;
-}
-.chrome-dot--amber {
-  background: #ffc46b;
-  opacity: 0.7;
-}
-.chrome-dot--green {
-  background: #4cf0c8;
-  opacity: 0.7;
-}
-
-.terminal-window__title {
-  margin-left: 7px;
-  font-size: 8.5px;
-  color: var(--faint);
-}
-
-.terminal-window__running {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  font-size: 8.5px;
-  color: var(--warning);
 }
 
 .terminal-host {
@@ -797,7 +682,7 @@ onUnmounted(() => {
   min-height: 0;
   padding: 13px 6px 10px 16px;
   background:
-    radial-gradient(900px 500px at 100% 0%, rgba(76, 240, 200, 0.035), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, var(--accent-faint), transparent 60%),
     #050810;
 }
 
@@ -875,7 +760,7 @@ onUnmounted(() => {
   padding: 0 17px;
   border-top: 1px solid var(--border);
   background: rgba(7, 12, 20, 0.9);
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--faint);
   flex: none;
 }
@@ -905,7 +790,7 @@ onUnmounted(() => {
   border-radius: 4px;
   background: var(--panel-inset);
   color: var(--muted);
-  font-size: 8px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -923,7 +808,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 8px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -938,19 +823,8 @@ onUnmounted(() => {
     height: 54px;
   }
 
-  .terminal-brand__text,
-  .terminal-conn__sep,
-  .terminal-conn__age {
+  .terminal-brand__text {
     display: none;
-  }
-
-  .terminal-conn {
-    margin-left: 0;
-    padding: 4px 8px;
-  }
-
-  .terminal-conn__text {
-    max-width: 120px;
   }
 
   .terminal-actions {
@@ -967,11 +841,7 @@ onUnmounted(() => {
   }
 
   .terminal-body {
-    padding: 6px 6px 0;
-  }
-
-  .terminal-window {
-    border-radius: 10px 10px 0 0;
+    padding: 0;
   }
 
   .terminal-host {

@@ -265,7 +265,7 @@ defineProps<{
 
 .device__title strong {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.13em;
   color: rgba(235, 245, 255, 0.9);
 }
@@ -273,7 +273,7 @@ defineProps<{
 .device__title span {
   margin-top: 2px;
   font-family: var(--font-mono);
-  font-size: 7px;
+  font-size: 9.5px;
   letter-spacing: 0.16em;
   color: rgba(160, 185, 210, 0.7);
 }
@@ -406,7 +406,7 @@ defineProps<{
   border: 1px solid var(--border);
   background: rgba(8, 14, 23, 0.76);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -440,7 +440,7 @@ defineProps<{
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.24em;
   color: var(--faint);
   transition: color 500ms ease;
