@@ -102,7 +102,14 @@ if ($actual -ne $sha256) {
 }
 
 if (Test-Path $pluginDir) { Remove-Item $pluginDir -Recurse -Force }
-tar -xzf $archive -C $extractRoot
+# Use the Windows bsdtar explicitly. MSYS2's GNU tar (which setup-msys2 puts on
+# PATH) treats the drive letter in D:\... as a remote host.
+$tar = Join-Path $env:SystemRoot 'System32/tar.exe'
+if (-not (Test-Path $tar)) { $tar = 'tar' }
+& $tar -xzf $archive -C $extractRoot
+if ($LASTEXITCODE -ne 0) {
+  throw "Could not extract the plugin archive with $tar"
+}
 if (-not (Test-Path $manifest)) {
   throw "Extraction failed; expected $manifest"
 }
