@@ -81,5 +81,9 @@ const isTerminal = computed(() => route.name === 'terminal')
   .shell--mobile .shell__content {
     padding-top: calc(var(--header-height) + env(safe-area-inset-top));
   }
+
+  .shell--mobile.shell--terminal .shell__content {
+    padding-top: 0;
+  }
 }
 </style>
