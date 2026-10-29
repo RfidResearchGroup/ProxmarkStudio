@@ -42,9 +42,7 @@ const items = computed(() => [
   bottom: 0;
   z-index: 50;
   padding: 0 10px env(safe-area-inset-bottom);
-  background: linear-gradient(180deg, rgba(5, 8, 16, 0.4), rgba(5, 8, 16, 0.94) 32%);
-  backdrop-filter: blur(22px) saturate(1.3);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  background: rgba(5, 8, 16, 0.98);
   border-top: 1px solid var(--border);
 }
 

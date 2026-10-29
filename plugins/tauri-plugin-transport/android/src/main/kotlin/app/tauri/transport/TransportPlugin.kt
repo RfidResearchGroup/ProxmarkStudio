@@ -30,6 +30,8 @@ import app.tauri.plugin.Plugin
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 private const val TAG = "Pm3Transport"
 private const val ACTION_USB_PERMISSION = "app.tauri.transport.USB_PERMISSION"
@@ -269,10 +271,32 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
             closeAll()
             closed = false
             val device = adapter.getRemoteDevice(args.address)
+            adapter.cancelDiscovery()
             Thread {
                 try {
                     val socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
-                    socket.connect()
+                    var failure: Exception? = null
+                    val latch = CountDownLatch(1)
+                    val connector = Thread {
+                        try {
+                            socket.connect()
+                        } catch (error: Exception) {
+                            failure = error
+                        } finally {
+                            latch.countDown()
+                        }
+                    }
+                    connector.start()
+                    if (!latch.await(8, TimeUnit.SECONDS)) {
+                        runCatching { socket.close() }
+                        invoke.reject("Bluetooth SPP connection timed out")
+                        return@Thread
+                    }
+                    failure?.let {
+                        runCatching { socket.close() }
+                        invoke.reject(it.message ?: "Failed to connect to Bluetooth SPP")
+                        return@Thread
+                    }
                     sppSocket = socket
                     sppInput = socket.inputStream
                     sppOutput = socket.outputStream

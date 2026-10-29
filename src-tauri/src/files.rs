@@ -11,6 +11,21 @@ use crate::state::AppState;
 const TEXT_LIMIT: usize = 1024 * 1024;
 const HEX_LIMIT: usize = 512 * 1024;
 const INTERNAL_MARKER: &str = ".pm3-resources.json";
+const RESOURCE_DIRS: &[&str] = &[
+    "cmdscripts",
+    "dictionaries",
+    "lualibs",
+    "luascripts",
+    "pyscripts",
+    "resources",
+];
+
+fn scope_root(state: &AppState, scope: &str) -> Result<PathBuf, String> {
+    match scope {
+        "" | "workspace" | "resources" => Ok(state.pm3_dir.clone()),
+        other => Err(format!("Unknown file scope: {other}")),
+    }
+}
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -306,11 +321,24 @@ fn validate_name(name: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn list_dir(state: State<'_, AppState>, path: String) -> Result<ListDirResult, String> {
-    let root = state.pm3_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || read_entries(&root, &path))
-        .await
-        .map_err(|error| error.to_string())?
+pub async fn list_dir(
+    state: State<'_, AppState>,
+    path: String,
+    scope: String,
+) -> Result<ListDirResult, String> {
+    let root = scope_root(&state, &scope)?;
+    let resource_view = scope == "resources";
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut result = read_entries(&root, &path)?;
+        if resource_view && path.is_empty() {
+            result
+                .entries
+                .retain(|entry| RESOURCE_DIRS.contains(&entry.name.as_str()));
+        }
+        Ok(result)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -318,8 +346,9 @@ pub async fn read_file(
     state: State<'_, AppState>,
     path: String,
     mode: String,
+    scope: String,
 ) -> Result<ReadFileResult, String> {
-    let root = state.pm3_dir.clone();
+    let root = scope_root(&state, &scope)?;
     tauri::async_runtime::spawn_blocking(move || read_file_impl(&root, &path, &mode))
         .await
         .map_err(|error| error.to_string())?

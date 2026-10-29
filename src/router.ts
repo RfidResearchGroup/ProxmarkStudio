@@ -45,3 +45,24 @@ router.afterEach((to) => {
   const title = to.meta?.title as TranslationKey | undefined
   document.title = title ? `${settings.t(title)} · Proxmark Studio` : 'Proxmark Studio'
 })
+
+const viewPreloaders = [
+  () => import('@/views/FilesView.vue'),
+  () => import('@/views/SettingsView.vue'),
+  () => import('@/views/TerminalView.vue'),
+]
+
+let viewsPreloaded = false
+
+/** Warm the route chunks after the first screen so page switches feel instant. */
+export function preloadViews() {
+  if (viewsPreloaded) return
+  viewsPreloaded = true
+  // xterm and the terminal view are heavy; on a phone preloading them right
+  // after launch causes more jank than it saves.
+  const mobile = window.matchMedia('(max-width: 860px)').matches
+  const preloaders = mobile ? viewPreloaders.slice(0, 2) : viewPreloaders
+  window.setTimeout(() => {
+    for (const load of preloaders) void load()
+  }, 700)
+}

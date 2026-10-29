@@ -74,10 +74,8 @@ const statusLabel = () => {
   gap: 10px;
   height: calc(var(--header-height) + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) 16px 0;
-  background: rgba(5, 8, 16, 0.76);
+  background: rgba(5, 8, 16, 0.98);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
 [data-theme='carbon'] .mobile-header {

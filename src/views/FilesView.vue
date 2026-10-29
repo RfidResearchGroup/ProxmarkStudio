@@ -168,10 +168,10 @@ async function loadViewer() {
   viewerLoading.value = true
   viewerError.value = ''
   try {
-    const result = await readFile(viewerEntry.value.path, viewerMode.value)
+    const result = await readFile(viewerEntry.value.path, viewerMode.value, files.scope)
     if (result.binary && viewerMode.value === 'text') {
       viewerMode.value = 'hex'
-      const hex = await readFile(viewerEntry.value.path, 'hex')
+      const hex = await readFile(viewerEntry.value.path, 'hex', files.scope)
       viewer.value = hex
     } else {
       viewer.value = result
@@ -361,6 +361,7 @@ async function confirmMove() {
 }
 
 function openFolderDialog() {
+  if (files.scope === 'resources') return
   folderName.value = ''
   folderError.value = ''
   folderOpen.value = true
@@ -426,7 +427,7 @@ onUnmounted(() => {
           <RefreshCw :size="14" :class="{ spinning: files.loading }" />
           {{ settings.t('files.refresh') }}
         </button>
-        <button class="btn btn--primary btn--sm" @click="openFolderDialog">
+        <button v-if="files.scope === 'workspace'" class="btn btn--primary btn--sm" @click="openFolderDialog">
           <FolderPlus :size="14" />
           {{ settings.t('files.newFolder') }}
         </button>
@@ -437,9 +438,19 @@ onUnmounted(() => {
       <div class="workspace-head__path">
         <span class="workspace-head__icon"><HardDrive :size="18" /></span>
         <div>
-          <span class="workspace-head__label">{{ settings.t('home.workdir') }}</span>
-          <div class="workspace-head__value mono" :title="platform.paths.pm3Dir">
-            {{ shortPath(platform.paths.pm3Dir || '—', 74) }}
+          <span class="workspace-head__label">
+            {{ files.scope === 'resources' ? settings.t('files.scopeResources') : settings.t('home.workdir') }}
+          </span>
+          <div
+            class="workspace-head__value mono"
+            :title="files.scope === 'resources' ? platform.paths.resourcesDir : platform.paths.pm3Dir"
+          >
+            {{
+              shortPath(
+                (files.scope === 'resources' ? platform.paths.resourcesDir : platform.paths.pm3Dir) || '—',
+                74,
+              )
+            }}
           </div>
         </div>
       </div>
@@ -451,6 +462,23 @@ onUnmounted(() => {
         <span class="mono">{{ formatBytes(files.totalSize) }}</span>
       </div>
     </section>
+
+    <div class="scope-switch">
+      <button
+        class="scope-switch__item"
+        :class="{ 'scope-switch__item--active': files.scope === 'workspace' }"
+        @click="files.setScope('workspace')"
+      >
+        {{ settings.t('files.scopeWorkspace') }}
+      </button>
+      <button
+        class="scope-switch__item"
+        :class="{ 'scope-switch__item--active': files.scope === 'resources' }"
+        @click="files.setScope('resources')"
+      >
+        {{ settings.t('files.scopeResources') }}
+      </button>
+    </div>
 
     <div class="browser">
       <div class="browser__toolbar">
@@ -521,9 +549,17 @@ onUnmounted(() => {
 
       <div v-else-if="files.isEmpty" class="empty-state">
         <span class="empty-icon"><FolderOpen :size="23" /></span>
-        <span class="empty-title">{{ settings.t('files.emptyTitle') }}</span>
-        <p class="empty-body">{{ settings.t('files.emptyBody') }}</p>
-        <button class="btn btn--sm empty-action" @click="openFolderDialog">
+        <span class="empty-title">
+          {{ files.scope === 'resources' ? settings.t('files.resourcesEmpty') : settings.t('files.emptyTitle') }}
+        </span>
+        <p class="empty-body">
+          {{ files.scope === 'resources' ? settings.t('files.resourcesEmptyBody') : settings.t('files.emptyBody') }}
+        </p>
+        <button
+          v-if="files.scope === 'workspace'"
+          class="btn btn--sm empty-action"
+          @click="openFolderDialog"
+        >
           <FolderPlus :size="13" />
           {{ settings.t('files.newFolder') }}
         </button>
@@ -561,7 +597,7 @@ onUnmounted(() => {
           </button>
           <span class="file-row__size mono">{{ entry.isDir ? '—' : formatBytes(entry.size) }}</span>
           <span class="file-row__date">{{ dateLabel(entry.modified) }}</span>
-          <div class="file-row__actions">
+          <div v-if="files.scope === 'workspace'" class="file-row__actions">
             <button class="icon-btn row-action" :title="settings.t('files.moreActions')" @click="toggleMenu($event, entry)">
               <MoreHorizontal :size="17" />
             </button>
@@ -795,6 +831,30 @@ onUnmounted(() => {
   gap: 20px;
   padding: 17px 19px;
   margin-bottom: 14px;
+}
+
+.scope-switch {
+  display: inline-flex;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-inset);
+}
+
+.scope-switch__item {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.scope-switch__item--active {
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .workspace-head__path {

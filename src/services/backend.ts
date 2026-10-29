@@ -135,14 +135,20 @@ export async function getPaths(): Promise<PathInfo> {
   return invoke<PathInfo>('get_paths')
 }
 
-export async function listDir(path = ''): Promise<ListDirResult> {
+export type FileScope = 'workspace' | 'resources'
+
+export async function listDir(path = '', scope: FileScope = 'workspace'): Promise<ListDirResult> {
   if (!isTauri) return mockListDir(path)
-  return invoke<ListDirResult>('list_dir', { path })
+  return invoke<ListDirResult>('list_dir', { path, scope })
 }
 
-export async function readFile(path: string, mode: ReadMode): Promise<ReadFileResult> {
+export async function readFile(
+  path: string,
+  mode: ReadMode,
+  scope: FileScope = 'workspace',
+): Promise<ReadFileResult> {
   if (!isTauri) return mockReadFile(path, mode)
-  return invoke<ReadFileResult>('read_file', { path, mode })
+  return invoke<ReadFileResult>('read_file', { path, mode, scope })
 }
 
 export async function deletePath(path: string): Promise<void> {

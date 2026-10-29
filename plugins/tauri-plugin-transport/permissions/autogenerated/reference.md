@@ -10,6 +10,8 @@ Default permissions for the Android transport bridge
 - `allow-open-spp`
 - `allow-write`
 - `allow-close`
+- `allow-register-listener`
+- `allow-remove-listener`
 
 ## Permission Table
 
@@ -146,6 +148,58 @@ Enables the open_usb command without any pre-configured scope.
 <td>
 
 Denies the open_usb command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:allow-register-listener`
+
+</td>
+<td>
+
+Enables the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:deny-register-listener`
+
+</td>
+<td>
+
+Denies the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:allow-remove-listener`
+
+</td>
+<td>
+
+Enables the remove_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:deny-remove-listener`
+
+</td>
+<td>
+
+Denies the remove_listener command without any pre-configured scope.
 
 </td>
 </tr>

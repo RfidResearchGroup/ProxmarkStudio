@@ -6,6 +6,7 @@ import {
   listDir,
   movePath,
   type FileEntry,
+  type FileScope,
 } from '@/services/backend'
 import { useSettingsStore } from './settings'
 import { useToastStore } from './toast'
@@ -25,6 +26,7 @@ export const useFilesStore = defineStore('files', () => {
   const path = ref('')
   const parent = ref<string | null>(null)
   const entries = ref<FileEntry[]>([])
+  const scope = ref<FileScope>('workspace')
   const loading = ref(false)
   const loaded = ref(false)
   const error = ref('')
@@ -54,7 +56,9 @@ export const useFilesStore = defineStore('files', () => {
     entries.value.filter((entry) => !entry.isDir).reduce((sum, entry) => sum + entry.size, 0),
   )
   const breadcrumbs = computed<Breadcrumb[]>(() => {
-    const crumbs: Breadcrumb[] = [{ name: settings.t('files.root'), path: '' }]
+    const rootName =
+      scope.value === 'resources' ? settings.t('files.scopeResources') : settings.t('files.root')
+    const crumbs: Breadcrumb[] = [{ name: rootName, path: '' }]
     if (!path.value) return crumbs
     const parts = path.value.split('/')
     let accumulated = ''
@@ -64,15 +68,22 @@ export const useFilesStore = defineStore('files', () => {
     }
     return crumbs
   })
-  const currentName = computed(() => (path.value ? basename(path.value) : settings.t('files.root')))
+  const currentName = computed(() =>
+    path.value
+      ? basename(path.value)
+      : scope.value === 'resources'
+        ? settings.t('files.scopeResources')
+        : settings.t('files.root'),
+  )
   const isEmpty = computed(() => loaded.value && !loading.value && entries.value.length === 0)
   const isFilteredEmpty = computed(() => loaded.value && !loading.value && entries.value.length > 0 && filtered.value.length === 0)
 
-  async function load(target = '') {
+  async function load(target = '', nextScope: FileScope = scope.value) {
+    scope.value = nextScope
     loading.value = true
     error.value = ''
     try {
-      const result = await listDir(target)
+      const result = await listDir(target, nextScope)
       path.value = result.path
       parent.value = result.parent
       entries.value = result.entries
@@ -84,17 +95,26 @@ export const useFilesStore = defineStore('files', () => {
     }
   }
 
+  async function setScope(next: FileScope) {
+    if (next === scope.value) return
+    path.value = ''
+    parent.value = null
+    entries.value = []
+    loaded.value = false
+    await load('', next)
+  }
+
   async function refresh() {
-    await load(path.value)
+    await load(path.value, scope.value)
   }
 
   async function up() {
     if (parent.value === null) return
-    await load(parent.value)
+    await load(parent.value, scope.value)
   }
 
   async function open(entry: FileEntry) {
-    if (entry.isDir) await load(entry.path)
+    if (entry.isDir) await load(entry.path, scope.value)
   }
 
   function setSort(field: SortField) {
@@ -107,6 +127,9 @@ export const useFilesStore = defineStore('files', () => {
   }
 
   async function remove(entry: FileEntry) {
+    if (scope.value === 'resources') {
+      throw new Error(settings.t('files.readOnly'))
+    }
     try {
       await deletePath(entry.path)
       toast.success(settings.t('files.deleted', { name: entry.name }))
@@ -118,6 +141,9 @@ export const useFilesStore = defineStore('files', () => {
   }
 
   async function move(entry: FileEntry, target: string, name: string) {
+    if (scope.value === 'resources') {
+      throw new Error(settings.t('files.readOnly'))
+    }
     try {
       const destination = await movePath(entry.path, target, name)
       toast.success(settings.t('files.moveSuccess', { path: destination }))
@@ -130,6 +156,9 @@ export const useFilesStore = defineStore('files', () => {
   }
 
   async function makeFolder(name: string) {
+    if (scope.value === 'resources') {
+      throw new Error(settings.t('files.readOnly'))
+    }
     try {
       await createFolder(path.value, name)
       toast.success(settings.t('files.folderCreated', { name }))
@@ -141,6 +170,7 @@ export const useFilesStore = defineStore('files', () => {
   }
 
   function reset() {
+    scope.value = 'workspace'
     path.value = ''
     parent.value = null
     entries.value = []
@@ -153,6 +183,7 @@ export const useFilesStore = defineStore('files', () => {
     path,
     parent,
     entries,
+    scope,
     loading,
     loaded,
     error,
@@ -169,6 +200,7 @@ export const useFilesStore = defineStore('files', () => {
     isFilteredEmpty,
     load,
     refresh,
+    setScope,
     up,
     open,
     setSort,

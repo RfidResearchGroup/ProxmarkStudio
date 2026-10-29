@@ -1019,3 +1019,20 @@ html.frameless:fullscreen .terminal-page {
   opacity: 0;
   transform: translateY(-5px);
 }
+
+@media (max-width: 860px) {
+  .page {
+    animation-duration: 160ms;
+  }
+
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+
+  .page-enter-from,
+  .page-leave-to {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -82,7 +82,7 @@ pub fn get_paths(state: tauri::State<'_, AppState>) -> PathInfo {
     PathInfo {
         work_dir: state.pm3_dir.display().to_string(),
         pm3_dir: state.pm3_dir.display().to_string(),
-        resources_dir: state.home.join("share").join("proxmark3").display().to_string(),
+        resources_dir: state.pm3_dir.display().to_string(),
     }
 }
 

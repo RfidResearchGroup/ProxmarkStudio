@@ -2068,4 +2068,69 @@ onUnmounted(() => {
     font-size: 11px;
   }
 }
+
+
+@media (max-width: 640px) {
+  .home .page-head {
+    display: none;
+  }
+
+  .hero:not(.hero--connected) {
+    padding: 12px;
+  }
+
+  .hero:not(.hero--connected) .hero__status,
+  .hero:not(.hero--connected) .hero__title,
+  .hero:not(.hero--connected) .hero__body {
+    display: none;
+  }
+
+  .hero:not(.hero--connected) .method-tabs {
+    margin-top: 0;
+  }
+
+  .connect-panel {
+    margin-top: 10px;
+  }
+
+  .connect-panel__head {
+    align-items: center;
+    padding: 10px 11px 8px;
+  }
+
+  .connect-panel__title {
+    font-size: 12.5px;
+  }
+
+  .connect-panel__hint {
+    display: none;
+  }
+
+  .device-list,
+  .device-list--ble {
+    max-height: min(42vh, 390px);
+  }
+
+  .device-option {
+    padding: 10px 9px;
+  }
+
+  .mini-empty {
+    margin: 0 8px 8px;
+    padding: 10px;
+  }
+
+  .mini-empty p {
+    display: none;
+  }
+
+  .connect-panel__foot {
+    padding: 9px;
+  }
+
+  .connect-panel__foot .btn {
+    min-height: 44px;
+  }
+}
+
 </style>

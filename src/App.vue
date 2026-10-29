@@ -7,6 +7,7 @@ import ToastHost from '@/components/ToastHost.vue'
 import { usePlatformStore } from '@/stores/platform'
 import { useConnectionStore } from '@/stores/connection'
 import { isTauri } from '@/services/backend'
+import { preloadViews } from '@/router'
 
 const platform = usePlatformStore()
 const connection = useConnectionStore()
@@ -27,6 +28,7 @@ watchEffect(() => {
 onMounted(async () => {
   await platform.init()
   await connection.init()
+  preloadViews()
 })
 </script>
 
