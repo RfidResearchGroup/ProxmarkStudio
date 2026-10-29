@@ -1213,6 +1213,11 @@ onMounted(async () => {
     padding-bottom: 92px;
   }
 
+  .settings-col--side {
+    display: flex;
+    flex-direction: column;
+  }
+
   .autosave {
     display: none;
   }
@@ -1275,4 +1280,22 @@ onMounted(async () => {
     flex-direction: column;
   }
 }
+
+
+@media (max-width: 860px) {
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-col--side {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .settings-col--side > .settings-card {
+    width: 100%;
+  }
+}
+
 </style>
