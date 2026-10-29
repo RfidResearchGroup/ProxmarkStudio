@@ -162,8 +162,17 @@ jobs:
           target="${{ matrix.target }}"
           app="$(find "src-tauri/target/$target/release/bundle/macos" -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$app"
-          hdiutil create -volname "Proxmark Studio" -srcfolder "$app" -ov -format UDZO \
-            "src-tauri/target/$target/release/ProxmarkStudio-${{ matrix.name }}.dmg"
+          dmg="src-tauri/target/$target/release/ProxmarkStudio-${{ matrix.name }}.dmg"
+          for attempt in 1 2 3; do
+            rm -f "$dmg"
+            if hdiutil create -volname "Proxmark Studio" -srcfolder "$app" -ov -format UDZO "$dmg"; then
+              exit 0
+            fi
+            echo "hdiutil create failed (attempt $attempt); detaching and retrying"
+            hdiutil detach "/Volumes/Proxmark Studio" -force || true
+            sleep 5
+          done
+          exit 1
 
       - name: Package portable Windows build
         if: runner.os == 'Windows'
