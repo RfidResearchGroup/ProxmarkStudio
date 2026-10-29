@@ -82,11 +82,31 @@ function Repair-StaticWindows {
   Write-Host 'Patched Windows static library linking' -ForegroundColor Yellow
 }
 
+# Apple clang x86_64 does not provide GCC's __cpu_indicator_init/__cpu_model
+# runtime, so the client's __builtin_cpu_supports() dispatchers fail to link.
+# Use the portable NOSIMD paths there; arm64 still uses NEON.
+function Repair-AppleSIMD {
+  $header = Join-Path $pluginDir 'proxmark3/client/deps/hardnested/hardnested_bf_core.h'
+  if (-not (Test-Path $header)) { return }
+  if ((Get-Content -Raw $header).Contains('&& !defined(__APPLE__)')) { return }
+
+  $patch = Join-Path $PSScriptRoot 'patches/pm3_apple-simd.patch'
+  if (-not (Test-Path $patch)) { throw "Missing patch: $patch" }
+
+  git -C $root apply --check $patch
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cannot apply $patch. The plugin sources may have changed."
+  }
+  git -C $root apply $patch
+  Write-Host 'Patched Apple x86_64 SIMD dispatch' -ForegroundColor Yellow
+}
+
 if ((Test-Path $manifest) -and -not $Force) {
   Repair-Links -Path $manifest
   Repair-AndroidCMake
   Repair-StdoutCapture
   Repair-StaticWindows
+  Repair-AppleSIMD
   Write-Host "Proxmark3 plugin already present: $pluginDir" -ForegroundColor Green
   exit 0
 }
@@ -117,4 +137,5 @@ Repair-Links -Path $manifest
 Repair-AndroidCMake
 Repair-StdoutCapture
 Repair-StaticWindows
+Repair-AppleSIMD
 Write-Host "Proxmark3 plugin ready: $pluginDir" -ForegroundColor Green

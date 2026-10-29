@@ -65,11 +65,29 @@ repair_static_windows() {
   echo "Patched Windows static library linking"
 }
 
+# Apple clang x86_64 does not provide GCC's __cpu_indicator_init/__cpu_model
+# runtime, so the client's __builtin_cpu_supports() dispatchers fail to link.
+# Use the portable NOSIMD paths there; arm64 still uses NEON.
+repair_apple_simd() {
+  local header="$PLUGIN/proxmark3/client/deps/hardnested/hardnested_bf_core.h"
+  local patch="$ROOT/scripts/patches/pm3_apple-simd.patch"
+  [ -f "$header" ] || return 0
+  grep -q '&& !defined(__APPLE__)' "$header" && return 0
+  [ -f "$patch" ] || { echo "Missing patch: $patch" >&2; exit 1; }
+  if ! git -C "$ROOT" apply --check "$patch"; then
+    echo "Cannot apply $patch. The plugin sources may have changed." >&2
+    exit 1
+  fi
+  git -C "$ROOT" apply "$patch"
+  echo "Patched Apple x86_64 SIMD dispatch"
+}
+
 if [ -f "$PLUGIN/Cargo.toml" ]; then
   repair_links
   repair_android_cmake
   repair_stdout_capture
   repair_static_windows
+  repair_apple_simd
   echo "Proxmark3 plugin already present: $PLUGIN"
   exit 0
 fi
@@ -93,4 +111,5 @@ repair_links
 repair_android_cmake
 repair_stdout_capture
 repair_static_windows
+repair_apple_simd
 echo "Proxmark3 plugin ready: $PLUGIN"
