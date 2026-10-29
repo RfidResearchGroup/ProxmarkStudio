@@ -101,7 +101,7 @@ itself so the statically linked client sees the same directory.
 
 ## Stack
 
-- **Shell**: Tauri 2.12 (Rust), `tauri-plugin-proxmark3` 0.2.1 (static libpm3)
+- **Shell**: Tauri 2.12 (Rust), `tauri-plugin-proxmark3` 0.2.2 (static libpm3)
 - **UI**: Vue 3.5, Pinia, Vue Router, Vite 6, TypeScript
 - **Terminal**: `@xterm/xterm` + `@xterm/addon-fit`
 - **Transport**: `tauri-plugin-blec` for BLE, serialport for USB/SPP discovery,
@@ -145,9 +145,8 @@ will fail with an explicit message from the plugin.
 
 ```bash
 pnpm install
-# Download the pinned plugin crate into _temp and apply the local compatibility
-# patches (Cargo links key, Android CMake, CMake version fallback, GUI stdout
-# capture, interactive stdin, static Windows libraries, Apple x86_64 SIMD).
+# Download the pinned plugin crate into _temp. The crate carries the upstream
+# compatibility patches and applies them to the Proxmark3 client at build time.
 powershell -ExecutionPolicy Bypass -File scripts/setup-plugin.ps1   # Windows
 # or
 bash scripts/setup-plugin.sh                                        # Linux/macOS

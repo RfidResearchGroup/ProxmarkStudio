@@ -10,7 +10,7 @@ Set-Location $root
 if (-not (Test-Path 'node_modules')) {
   throw 'Frontend dependencies are missing. Run `pnpm install` first.'
 }
-if (-not (Test-Path '_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/Cargo.toml')) {
+if (-not (Test-Path '_temp/plugin-crate/tauri-plugin-proxmark3-0.2.2/Cargo.toml')) {
   & (Join-Path $PSScriptRoot 'setup-plugin.ps1')
 }
 
