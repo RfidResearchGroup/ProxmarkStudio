@@ -274,27 +274,49 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
             adapter.cancelDiscovery()
             Thread {
                 try {
-                    val socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
-                    var failure: Exception? = null
-                    val latch = CountDownLatch(1)
-                    val connector = Thread {
-                        try {
-                            socket.connect()
+                    var lastError: Exception? = null
+                    var connected: BluetoothSocket? = null
+                    val factories: List<() -> BluetoothSocket> = listOf(
+                        { device.createRfcommSocketToServiceRecord(SPP_UUID) },
+                        { device.createInsecureRfcommSocketToServiceRecord(SPP_UUID) },
+                        {
+                            val method = device.javaClass.getMethod(
+                                "createRfcommSocket",
+                                Int::class.javaPrimitiveType,
+                            )
+                            method.invoke(device, 1) as BluetoothSocket
+                        },
+                    )
+                    for (factory in factories) {
+                        val candidate = try {
+                            factory()
                         } catch (error: Exception) {
-                            failure = error
-                        } finally {
-                            latch.countDown()
+                            lastError = error
+                            continue
                         }
+                        var failure: Exception? = null
+                        val latch = CountDownLatch(1)
+                        Thread {
+                            try {
+                                candidate.connect()
+                            } catch (error: Exception) {
+                                failure = error
+                            } finally {
+                                latch.countDown()
+                            }
+                        }.start()
+                        val finished = latch.await(6, TimeUnit.SECONDS)
+                        if (finished && failure == null) {
+                            connected = candidate
+                            break
+                        }
+                        lastError = failure ?: Exception("Bluetooth SPP connection timed out")
+                        Thread { runCatching { candidate.close() } }.start()
                     }
-                    connector.start()
-                    if (!latch.await(8, TimeUnit.SECONDS)) {
-                        runCatching { socket.close() }
-                        invoke.reject("Bluetooth SPP connection timed out")
-                        return@Thread
-                    }
-                    failure?.let {
-                        runCatching { socket.close() }
-                        invoke.reject(it.message ?: "Failed to connect to Bluetooth SPP")
+
+                    val socket = connected
+                    if (socket == null) {
+                        invoke.reject(lastError?.message ?: "Failed to connect to Bluetooth SPP")
                         return@Thread
                     }
                     sppSocket = socket

@@ -200,7 +200,23 @@ function selectMethod(next: Method) {
 
 function initialiseSelections() {
   if (!selectedUsb.value && connection.usbPorts.length) selectedUsb.value = connection.usbPorts[0].path
-  if (!selectedSpp.value && connection.sppPorts.length) selectedSpp.value = connection.sppPorts[0].path
+  if (!selectedSpp.value && connection.sppPorts.length) {
+    // Never silently pick an arbitrary paired device (headset, car kit, ...).
+    // Prefer a Proxmark, then a known SPP bridge, otherwise wait for the user.
+    const score = (port: {
+      product?: string | null
+      manufacturer?: string | null
+      path: string
+    }) => {
+      const text = `${port.product ?? ''} ${port.manufacturer ?? ''} ${port.path}`
+      if (/pm3|proxmark/i.test(text)) return 3
+      if (/spp/i.test(text)) return 2
+      if (/jdy|hc-0[56]/i.test(text)) return 1
+      return 0
+    }
+    const preferred = [...connection.sppPorts].sort((a, b) => score(b) - score(a))[0]
+    if (preferred && score(preferred) > 0) selectedSpp.value = preferred.path
+  }
 }
 
 function syncSelections() {

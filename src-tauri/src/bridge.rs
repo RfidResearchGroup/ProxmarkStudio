@@ -108,14 +108,22 @@ fn prepare_stream(stream: TcpStream) -> std::io::Result<TcpStream> {
     Ok(stream)
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeInfo {
+    pub port: u16,
+}
+
 #[tauri::command]
-pub fn ble_bridge_start(app: AppHandle, state: State<'_, AppState>) -> Result<u16, String> {
+pub fn ble_bridge_start(app: AppHandle, state: State<'_, AppState>) -> Result<BridgeInfo, String> {
     let mut slot = state
         .bridge
         .lock()
         .map_err(|_| "BLE bridge state is unavailable.".to_string())?;
     if let Some(existing) = slot.as_ref() {
-        return Ok(existing.port);
+        return Ok(BridgeInfo {
+            port: existing.port,
+        });
     }
 
     let listener = TcpListener::bind(("127.0.0.1", 0))
@@ -136,7 +144,7 @@ pub fn ble_bridge_start(app: AppHandle, state: State<'_, AppState>) -> Result<u1
         writer,
         thread: Some(thread),
     });
-    Ok(port)
+    Ok(BridgeInfo { port })
 }
 
 #[tauri::command]
