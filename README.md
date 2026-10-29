@@ -198,8 +198,9 @@ winpthread statically, so the produced `.exe` runs without MSYS2 installed.
 | Android arm64 | `ubuntu-latest` | debug APK |
 
 The workflow runs on every push to `main`, pull requests, and manual dispatch.
-Pushing a `v*` tag additionally publishes all packages to the GitHub release for
-that tag. Builds are available as workflow artifacts for 14 days.
+Successful `main` builds update the rolling **Latest development build**
+prerelease, while pushing a `v*` tag publishes a versioned GitHub release with
+the same packages. Builds are also available as workflow artifacts for 14 days.
 
 ### Linux / macOS
 
