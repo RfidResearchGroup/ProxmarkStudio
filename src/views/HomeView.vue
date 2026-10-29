@@ -95,6 +95,7 @@ const methods = computed(() => [
 
 const isConnected = computed(() => connection.isConnected)
 const connecting = computed(() => connection.status === 'connecting' && !connection.isConnected)
+const disconnecting = computed(() => connection.disconnecting)
 
 const heroTitle = computed(() => {
   if (isConnected.value) return settings.t('home.heroConnectedTitle')
@@ -416,6 +417,15 @@ onUnmounted(() => {
     </header>
 
     <section class="hero panel" :class="{ 'hero--connected': isConnected }">
+      <div v-if="disconnecting" class="connect-loading connect-loading--hero">
+        <div class="connect-loading__card">
+          <span class="spinner" />
+          <strong>{{ settings.t('home.disconnectingTitle') }}</strong>
+          <p>{{ settings.t('home.disconnectingHint') }}</p>
+          <span class="connect-loading__target mono">{{ connection.portLabel }}</span>
+        </div>
+      </div>
+
       <div class="hero__content">
         <div class="hero__status">
           <span class="status-dot" :class="`status-dot--${heroStateClass}`" />
@@ -706,9 +716,10 @@ onUnmounted(() => {
               </span>
             </div>
             <div class="connected-strip__actions">
-              <button class="btn btn--outline" @click="disconnect">
-                <Unplug :size="15" />
-                {{ settings.t('home.disconnect') }}
+              <button class="btn btn--outline" :disabled="disconnecting" @click="disconnect">
+                <span v-if="disconnecting" class="spinner spinner--sm" />
+                <Unplug v-else :size="15" />
+                {{ disconnecting ? settings.t('home.disconnecting') : settings.t('home.disconnect') }}
               </button>
               <button class="btn btn--primary" @click="openTerminal">
                 <Terminal :size="16" />
@@ -794,6 +805,7 @@ onUnmounted(() => {
 }
 
 .hero {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.22fr) minmax(300px, 0.78fr);
   gap: 20px;

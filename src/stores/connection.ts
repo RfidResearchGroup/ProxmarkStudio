@@ -52,6 +52,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const connectedAt = ref<number | null>(null)
   const lastError = ref('')
   const probing = ref(false)
+  const disconnecting = ref(false)
   const serialPorts = ref<SerialPortInfo[]>([])
   const loadingPorts = ref(false)
   const bridgePort = ref<number | null>(null)
@@ -413,11 +414,13 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   async function disconnect() {
+    if (disconnecting.value) return
     const wasConnected = Boolean(session.value?.open)
     const bleBridge = bridge
     const transport = androidTransport
     bridge = null
     androidTransport = null
+    disconnecting.value = true
     try {
       if (wasConnected) await pm3.disconnect()
     } catch (error) {
@@ -426,6 +429,7 @@ export const useConnectionStore = defineStore('connection', () => {
       if (bleBridge) await bleBridge.close().catch(() => {})
       if (transport) await transport.close().catch(() => {})
       resetSession()
+      disconnecting.value = false
       if (wasConnected) toast.info(settings.t('home.disconnectedToast'))
     }
   }
@@ -455,6 +459,7 @@ export const useConnectionStore = defineStore('connection', () => {
     connectedAt,
     lastError,
     probing,
+    disconnecting,
     serialPorts,
     loadingPorts,
     bridgePort,
