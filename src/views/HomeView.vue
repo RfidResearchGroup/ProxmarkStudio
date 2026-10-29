@@ -3,26 +3,18 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRight,
-  ArrowUpRight,
   Bluetooth,
   BookOpen,
   Cable,
   Check,
   ChevronDown,
   ChevronRight,
-  Clock,
-  Copy,
   Cpu,
-  Download,
-  FolderOpen,
-  HardDrive,
   Info,
-  Play,
   PlugZap,
   Radio,
   RefreshCw,
   ScanLine,
-  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Terminal,
@@ -35,7 +27,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConnectionStore } from '@/stores/connection'
 import { usePlatformStore } from '@/stores/platform'
 import { useToastStore } from '@/stores/toast'
-import { listDir, openExternal } from '@/services/backend'
+import { openExternal } from '@/services/backend'
 import {
   getBluetoothState,
   scanForDevices,
@@ -43,7 +35,7 @@ import {
   type BleDeviceInfo,
   type BleUartConfig,
 } from '@/services/ble'
-import { errorMessage, formatDuration, shortPath } from '@/utils/format'
+import { errorMessage, formatDuration } from '@/utils/format'
 
 type Method = 'usb' | 'ble' | 'spp'
 
@@ -63,7 +55,6 @@ const scanned = ref(false)
 const refreshing = ref(false)
 const advancedOpen = ref(false)
 const useCustomUart = ref(false)
-const workspaceFileCount = ref<number | null>(null)
 const now = ref(Date.now())
 
 const uart = reactive({
@@ -102,7 +93,6 @@ const methods = computed(() => [
 
 const isConnected = computed(() => connection.isConnected)
 const connecting = computed(() => connection.status === 'connecting' && !connection.isConnected)
-const scanBusy = computed(() => scanning.value || connection.status === 'connecting')
 
 const heroTitle = computed(() => {
   if (isConnected.value) return settings.t('home.heroConnectedTitle')
@@ -193,8 +183,6 @@ const uptime = computed(() => {
   return formatDuration(seconds)
 })
 
-const workspacePath = computed(() => platform.paths.pm3Dir || '—')
-
 const bluetoothState = ref('Unknown')
 
 function selectMethod(next: Method) {
@@ -214,18 +202,8 @@ async function refreshAll() {
     await connection.refreshPorts()
     initialiseSelections()
     if (isConnected.value) await connection.probeDevice()
-    await loadWorkspaceCount()
   } finally {
     refreshing.value = false
-  }
-}
-
-async function loadWorkspaceCount() {
-  try {
-    const result = await listDir('')
-    workspaceFileCount.value = result.entries.filter((entry) => !entry.isDir).length
-  } catch {
-    workspaceFileCount.value = null
   }
 }
 
@@ -263,10 +241,6 @@ function openTerminal() {
     return
   }
   void router.push('/terminal')
-}
-
-function go(path: string) {
-  void router.push(path)
 }
 
 async function startBleScan() {
@@ -321,19 +295,6 @@ function openDocs() {
   void openExternal('https://github.com/RfidResearchGroup/proxmark3/wiki')
 }
 
-function openReleases() {
-  void openExternal('https://github.com/xianglin1998/tauri-plugin-proxmark3/releases')
-}
-
-async function copyVersion() {
-  try {
-    await navigator.clipboard.writeText(clientVersion.value)
-    toast.success(settings.t('toast.copied'))
-  } catch {
-    toast.error(settings.t('toast.copyFailed'))
-  }
-}
-
 watch(
   () => connection.usbPorts,
   () => initialiseSelections(),
@@ -375,7 +336,6 @@ onMounted(async () => {
   }
   if (capabilities.value.usbSerial || capabilities.value.spp) await connection.refreshPorts()
   initialiseSelections()
-  await loadWorkspaceCount()
   clockTimer = window.setInterval(() => {
     now.value = Date.now()
   }, 5000)
@@ -412,7 +372,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <section class="hero panel">
+    <section class="hero panel" :class="{ 'hero--connected': isConnected }">
       <div class="hero__content">
         <div class="hero__status">
           <span class="status-dot" :class="`status-dot--${heroStateClass}`" />
@@ -699,40 +659,22 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
-
-          <div class="connected-meta">
-            <div class="connected-meta__item">
-              <Clock :size="14" />
-              <span>{{ uptime }}</span>
-            </div>
-            <div class="connected-meta__item">
-              <Cpu :size="14" />
-              <span>{{ connection.device?.target || settings.t('common.unknown') }}</span>
-            </div>
-            <div class="connected-meta__item">
-              <ShieldCheck :size="14" />
-              <span>{{ settings.t('common.online') }}</span>
-            </div>
-          </div>
         </template>
       </div>
 
       <div class="hero__visual">
         <DeviceVisual :connected="isConnected" :connecting="connecting" />
       </div>
-    </section>
 
-    <div class="home-grid">
-      <div class="home-col">
-        <section class="panel info-panel">
-          <div class="panel-head">
-            <h3 class="panel-title">
-              <Cpu :size="15" />
-              {{ settings.t('home.deviceInfo') }}
-            </h3>
+      <div v-if="isConnected" class="session-detail">
+        <div class="session-detail__head">
+          <div class="session-detail__title">
+            <Cpu :size="15" />
+            {{ settings.t('home.deviceDetails') }}
+          </div>
+          <div class="session-detail__actions">
             <span v-if="connection.device?.target" class="badge badge--accent">{{ connection.device.target }}</span>
             <button
-              v-else-if="isConnected"
               class="btn btn--ghost btn--sm"
               :disabled="connection.probing"
               @click="connection.probeDevice()"
@@ -741,172 +683,46 @@ onUnmounted(() => {
               {{ settings.t('home.probeAgain') }}
             </button>
           </div>
+        </div>
 
-          <div class="panel-body">
+        <div class="session-detail__grid">
+          <div class="detail-column">
+            <span class="detail-kicker">{{ settings.t('home.deviceInfo') }}</span>
             <div v-if="connection.probing && !deviceRows.length" class="info-skeleton">
-              <div v-for="index in 5" :key="index" class="skeleton info-skeleton__row" />
+              <div v-for="index in 4" :key="index" class="skeleton info-skeleton__row" />
             </div>
-            <div v-else-if="isConnected && deviceRows.length" class="info-table">
+            <div v-else-if="deviceRows.length" class="info-table">
               <div v-for="row in deviceRows" :key="row.label" class="info-row">
                 <span>{{ row.label }}</span>
                 <strong>{{ row.value }}</strong>
               </div>
-              <details v-if="connection.device?.raw" class="raw-details">
-                <summary>
-                  <span>{{ settings.t('home.rawOutput') }}</span>
-                  <ChevronRight :size="14" />
-                </summary>
-                <pre class="raw-output">{{ connection.device.raw }}</pre>
-              </details>
             </div>
-            <div v-else-if="isConnected" class="mini-empty mini-empty--plain">
-              <Cpu :size="20" />
-              <div>
-                <strong>{{ settings.t('home.noDeviceInfo') }}</strong>
-                <p>{{ connection.lastError || settings.t('home.probeAgain') }}</p>
-              </div>
-              <button class="btn btn--sm" @click="connection.probeDevice()">
-                <RefreshCw :size="13" />
-                {{ settings.t('home.probeAgain') }}
-              </button>
-            </div>
-            <div v-else class="tips">
-              <div class="tips__title">
-                <ShieldCheck :size="15" />
-                {{ settings.t('home.tipsTitle') }}
-              </div>
-              <div class="tip-row">
-                <span class="tip-row__index">01</span>
-                <p>{{ settings.t('home.tip1') }}</p>
-              </div>
-              <div class="tip-row">
-                <span class="tip-row__index">02</span>
-                <p>{{ settings.t('home.tip2') }}</p>
-              </div>
-              <div class="tip-row">
-                <span class="tip-row__index">03</span>
-                <p>{{ settings.t('home.tip3') }}</p>
-              </div>
+            <div v-else class="detail-empty">
+              <span>{{ settings.t('home.noDeviceInfo') }}</span>
+              <span v-if="connection.lastError" class="mono">{{ connection.lastError }}</span>
             </div>
           </div>
-        </section>
 
-        <section class="panel quick-panel">
-          <div class="panel-head">
-            <h3 class="panel-title">
-              <Play :size="15" />
-              {{ settings.t('home.quickActions') }}
-            </h3>
-          </div>
-          <div class="panel-body">
-            <div class="quick-grid">
-              <button class="quick-card" :class="{ 'quick-card--muted': !isConnected }" @click="openTerminal">
-                <span class="quick-card__icon"><Terminal :size="18" /></span>
-                <span>
-                  <strong>{{ settings.t('home.quickTerminal') }}</strong>
-                  <em>{{ settings.t('home.quickTerminalBody') }}</em>
-                </span>
-                <ArrowUpRight :size="15" class="quick-card__arrow" />
-              </button>
-              <button class="quick-card" @click="go('/files')">
-                <span class="quick-card__icon quick-card__icon--blue"><FolderOpen :size="18" /></span>
-                <span>
-                  <strong>{{ settings.t('home.quickFiles') }}</strong>
-                  <em>{{ settings.t('home.quickFilesBody') }}</em>
-                </span>
-                <ArrowUpRight :size="15" class="quick-card__arrow" />
-              </button>
-              <button class="quick-card" @click="go('/settings')">
-                <span class="quick-card__icon quick-card__icon--amber"><Download :size="18" /></span>
-                <span>
-                  <strong>{{ settings.t('home.quickResources') }}</strong>
-                  <em>{{ settings.t('home.quickResourcesBody') }}</em>
-                </span>
-                <ArrowUpRight :size="15" class="quick-card__arrow" />
-              </button>
-              <button class="quick-card" @click="go('/settings')">
-                <span class="quick-card__icon quick-card__icon--violet"><Settings :size="18" /></span>
-                <span>
-                  <strong>{{ settings.t('home.quickSettings') }}</strong>
-                  <em>{{ settings.t('home.quickSettingsBody') }}</em>
-                </span>
-                <ArrowUpRight :size="15" class="quick-card__arrow" />
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="home-col home-col--side">
-        <section class="panel session-panel">
-          <div class="panel-head">
-            <h3 class="panel-title">
-              <Info :size="15" />
-              {{ settings.t('home.clientInfo') }}
-            </h3>
-            <span class="status-dot" :class="isConnected ? 'status-dot--online' : ''" />
-          </div>
-          <div class="panel-body">
-            <div class="session-state" :class="{ 'session-state--online': isConnected }">
-              <div class="session-state__icon">
-                <component :is="isConnected ? ShieldCheck : Unplug" :size="18" />
-              </div>
-              <div>
-                <strong>{{ isConnected ? settings.t('home.statusOnline') : settings.t('home.noSession') }}</strong>
-                <span>{{ isConnected ? settings.t(connection.transportKey) : settings.t('home.deviceSummary') }}</span>
-              </div>
-            </div>
-
-            <div class="info-table info-table--compact">
+          <div class="detail-column">
+            <span class="detail-kicker">{{ settings.t('home.clientInfo') }}</span>
+            <div class="info-table">
               <div v-for="row in sessionRows" :key="row.label" class="info-row">
                 <span>{{ row.label }}</span>
                 <strong :class="{ mono: row.mono }">{{ row.value }}</strong>
               </div>
             </div>
-
-            <button v-if="clientVersion" class="copy-line" @click="copyVersion">
-              <Copy :size="13" />
-              <span class="mono truncate">{{ clientVersion }}</span>
-            </button>
           </div>
-        </section>
+        </div>
 
-        <section class="panel workspace-panel">
-          <div class="panel-body">
-            <div class="workspace-card">
-              <div class="workspace-card__top">
-                <span class="workspace-card__icon"><HardDrive :size="18" /></span>
-                <span class="badge">{{ settings.t('home.workdir') }}</span>
-              </div>
-              <div class="workspace-card__path" :title="workspacePath">{{ shortPath(workspacePath, 44) }}</div>
-              <div class="workspace-card__meta">
-                <span class="mono">{{
-                  workspaceFileCount === null
-                    ? settings.t('common.unknown')
-                    : settings.t('home.workdirFiles', { count: workspaceFileCount })
-                }}</span>
-                <span>·</span>
-                <span>{{ platform.osLabel }}</span>
-              </div>
-              <button class="workspace-card__link" @click="go('/files')">
-                {{ settings.t('home.quickFiles') }}
-                <ArrowRight :size="14" />
-              </button>
-            </div>
-
-            <div class="release-link">
-              <button class="release-link__button" @click="openReleases">
-                <span>
-                  <strong>{{ settings.t('home.viewRelease') }}</strong>
-                  <em>{{ settings.t('home.clientVersion') }}</em>
-                </span>
-                <ArrowUpRight :size="15" />
-              </button>
-            </div>
-          </div>
-        </section>
+        <details v-if="connection.device?.raw" class="raw-details raw-details--wide">
+          <summary>
+            <span>{{ settings.t('home.rawOutput') }}</span>
+            <ChevronRight :size="14" />
+          </summary>
+          <pre class="raw-output">{{ connection.device.raw }}</pre>
+        </details>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -927,6 +743,15 @@ onUnmounted(() => {
   padding: 30px 32px;
   background: var(--hero-wash);
   overflow: hidden;
+}
+
+.hero--connected {
+  grid-template-columns: 1fr;
+  min-height: 0;
+}
+
+.hero--connected .hero__visual {
+  display: none;
 }
 
 .hero::before {
@@ -1581,6 +1406,97 @@ onUnmounted(() => {
   color: var(--faint);
 }
 
+.session-detail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.session-detail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.session-detail__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 620;
+  color: var(--text-soft);
+}
+
+.session-detail__title svg {
+  color: var(--accent);
+}
+
+.session-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-detail__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 30px;
+}
+
+.detail-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.detail-kicker {
+  display: block;
+  margin-bottom: 5px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.detail-column .info-row {
+  padding: 7px 0;
+}
+
+.detail-column .info-row > strong.mono {
+  font-size: 9.5px;
+}
+
+.detail-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.detail-empty .mono {
+  color: var(--danger);
+  font-size: 9px;
+}
+
+.raw-details--wide {
+  margin-top: 0;
+  padding-top: 12px;
+}
+
+.raw-details--wide .raw-output {
+  max-height: 280px;
+}
+
 .hero__visual {
   display: flex;
   align-items: center;
@@ -2020,6 +1936,10 @@ onUnmounted(() => {
     display: none;
   }
 
+  .session-detail {
+    grid-column: 1;
+  }
+
   .home-grid {
     grid-template-columns: 1fr;
   }
@@ -2093,6 +2013,26 @@ onUnmounted(() => {
     width: 100%;
     padding-inline: 8px;
     font-size: 11.5px;
+  }
+
+  .session-detail {
+    padding-top: 16px;
+  }
+
+  .session-detail__head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .session-detail__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .session-detail__grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .home-col--side {

@@ -120,6 +120,7 @@ export const en = {
   'home.disconnect': 'Disconnect',
   'home.terminal': 'Open terminal',
   'home.deviceInfo': 'Hardware',
+  'home.deviceDetails': 'Device details',
   'home.clientInfo': 'Client session',
   'home.firmware': 'Firmware',
   'home.bootrom': 'Bootrom',

@@ -122,6 +122,7 @@ export const zh: Record<TranslationKey, string> = {
   'home.disconnect': '断开连接',
   'home.terminal': '打开终端',
   'home.deviceInfo': '硬件信息',
+  'home.deviceDetails': '设备详情',
   'home.clientInfo': '客户端会话',
   'home.firmware': '固件',
   'home.bootrom': 'Bootrom',
