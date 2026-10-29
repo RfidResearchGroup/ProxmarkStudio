@@ -141,6 +141,16 @@ const connectLabel = computed(() => {
   return settings.t('home.connect')
 })
 
+const connectingTarget = computed(() => {
+  if (method.value === 'usb') {
+    return connection.usbPorts.find((port) => port.path === selectedUsb.value)?.product || selectedUsb.value
+  }
+  if (method.value === 'spp') {
+    return connection.sppPorts.find((port) => port.path === selectedSpp.value)?.product || selectedSpp.value
+  }
+  return selectedBle.value?.name || ''
+})
+
 const deviceRows = computed(() => {
   const device = connection.device
   if (!device) return []
@@ -668,6 +678,21 @@ onUnmounted(() => {
                 <ArrowRight v-if="!connecting" :size="15" />
               </button>
             </footer>
+
+            <div v-if="connecting" class="connect-loading">
+              <div class="connect-loading__card">
+                <span class="spinner" />
+                <strong>{{ settings.t('home.connectingTitle') }}</strong>
+                <p>
+                  {{
+                    method === 'spp'
+                      ? settings.t('home.connectingSppHint')
+                      : settings.t('home.connectingHint')
+                  }}
+                </p>
+                <span class="connect-loading__target mono">{{ connectingTarget }}</span>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -936,12 +961,65 @@ onUnmounted(() => {
 }
 
 .connect-panel {
+  position: relative;
   width: 100%;
   margin-top: 14px;
   border: 1px solid var(--border);
   border-radius: 15px;
   background: rgba(5, 10, 18, 0.5);
   overflow: hidden;
+}
+
+.connect-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(4, 8, 16, 0.78);
+}
+
+.connect-loading__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 320px);
+  padding: 20px 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--panel-solid);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.connect-loading__card .spinner {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 2px;
+  border-width: 2px;
+}
+
+.connect-loading__card strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.connect-loading__card p {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.connect-loading__target {
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--accent);
 }
 
 .connect-panel__head {

@@ -288,6 +288,10 @@ export const useConnectionStore = defineStore('connection', () => {
     try {
       if (isAndroid) {
         if (isConnected.value) await disconnect()
+        status.value = 'connecting'
+        transport.value = 'usb'
+        portLabel.value = port
+        lastError.value = ''
         androidTransport = await openAndroidTransport('usb', port, () => { void handleDeviceLost() })
         const info = await openSession(`tcp:127.0.0.1:${androidTransport.port}`, 'usb', port)
         toast.success(settings.t('home.connectedToast', { port }))
@@ -302,6 +306,10 @@ export const useConnectionStore = defineStore('connection', () => {
         androidTransport = null
         await transport.close().catch(() => {})
       }
+      status.value = 'error'
+      lastError.value = errorMessage(error)
+      transport.value = 'usb'
+      portLabel.value = port
       toast.error(settings.t('home.connectionFailed'), errorMessage(error))
       throw error
     }
@@ -313,6 +321,10 @@ export const useConnectionStore = defineStore('connection', () => {
     try {
       if (isAndroid) {
         if (isConnected.value) await disconnect()
+        status.value = 'connecting'
+        transport.value = 'spp'
+        portLabel.value = port
+        lastError.value = ''
         androidTransport = await openAndroidTransport('spp', port, () => { void handleDeviceLost() })
         const info = await openSession(`tcp:127.0.0.1:${androidTransport.port}`, 'spp', port)
         toast.success(settings.t('home.connectedToast', { port }))
@@ -327,6 +339,10 @@ export const useConnectionStore = defineStore('connection', () => {
         androidTransport = null
         await transport.close().catch(() => {})
       }
+      status.value = 'error'
+      lastError.value = errorMessage(error)
+      transport.value = 'spp'
+      portLabel.value = port
       toast.error(settings.t('home.connectionFailed'), errorMessage(error))
       throw error
     }
