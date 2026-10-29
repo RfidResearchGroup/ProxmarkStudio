@@ -66,6 +66,10 @@ export const zh: Record<TranslationKey, string> = {
   'shell.statusBusy': '正在建立连接',
   'shell.statusOnline': '设备在线',
   'shell.noSession': '暂无会话',
+  'window.minimize': '最小化',
+  'window.maximize': '最大化',
+  'window.restore': '还原',
+  'window.close': '关闭',
 
   'home.eyebrow': '控制中心',
   'home.title': '专注于你的 Proxmark。',

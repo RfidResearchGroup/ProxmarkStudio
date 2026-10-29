@@ -115,8 +115,9 @@ src-tauri/            Tauri/Rust backend and desktop configuration
   src/files.rs        sandboxed workspace file operations
   src/resources.rs    GitHub release matching + resource installer
   src/bridge.rs       loopback TCP bridge for BLE frames
-scripts/              frontend runner, plugin bootstrap, Windows build helper
+scripts/              frontend runner, plugin bootstrap, Windows/Android helpers
 docs/screenshots/     UI captures
+src-tauri/gen/android Android Studio project (committed for manifest tweaks)
 _temp/                local toolchain/plugin cache, ignored by git
 ```
 
@@ -130,7 +131,8 @@ _temp/                local toolchain/plugin cache, ignored by git
 - Windows: MSYS2 UCRT64
   (`gcc`, `cmake`, `ninja`, `zlib`, `bzip2`, `lz4`)
 - Linux: GTK/WebKitGTK development packages required by Tauri
-- Android: JDK 17, Android SDK, NDK; iOS: macOS + Xcode
+- Android: JDK 17, Android SDK, NDK r27+ (NDK 21 lacks the `libunwind` that
+  current Rust Android targets link against); iOS: macOS + Xcode
 
 The embedded client is GPLv3 and only builds with the GNU ABI on Windows; MSVC
 will fail with an explicit message from the plugin.
@@ -141,9 +143,9 @@ will fail with an explicit message from the plugin.
 pnpm install
 # download the pinned, self-contained plugin crate into _temp and patch its
 # Cargo `links` key so Tauri's ACL namespace matches the runtime plugin name
-pwsh scripts/setup-plugin.ps1        # Windows
+powershell -ExecutionPolicy Bypass -File scripts/setup-plugin.ps1   # Windows
 # or
-bash scripts/setup-plugin.sh          # Linux/macOS
+bash scripts/setup-plugin.sh                                        # Linux/macOS
 ```
 
 The plugin is intentionally not committed. `scripts/setup-plugin.*` pins the
@@ -155,9 +157,9 @@ release URL and SHA-256, so the source tree stays small and reproducible.
 # optional if MSYS2 is not at the default path
 $env:PM3X_MINGW_BIN = 'C:\UserProgram\msys2\ucrt64\bin'
 
-pwsh scripts/tauri-windows.ps1          # development window (frameless)
-pwsh scripts/tauri-windows.ps1 -Release # release exe, no installer bundle
-pwsh scripts/tauri-windows.ps1 -Release -Bundle
+powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1          # development window
+powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1 -Release # release exe
+powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1 -Release -Bundle
 ```
 
 If you prefer the CLI directly:
@@ -185,14 +187,26 @@ addition to `/dev/rfcomm*` and USB CDC ports.
 
 ```bash
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-pnpm tauri android init
+# generated project is committed, so no `android init` is required
 pnpm tauri android dev
+# or, on Windows, use the environment helper:
+powershell -ExecutionPolicy Bypass -File scripts/tauri-android.ps1 -Debug -Apk
 ```
 
+If you keep the NDK under `_temp/android-ndk/android-ndk-r27c`,
+`scripts/tauri-android.ps1` finds it automatically. Otherwise set `NDK_HOME` to
+an r27+ installation.
+
+The generated Android project lives in
+[`src-tauri/gen/android`](src-tauri/gen/android) and is committed because the
+manifest carries the share `FileProvider` and the resource paths used by the
+app. It is pinned to `compileSdk = 35` / `targetSdk = 35` to match the installed
+SDK platform; bump both values (and install the corresponding platform) when
+you upgrade the Android toolchain.
+
 Android BLE runtime permissions are provided by `tauri-plugin-blec`. The share
-plugin expects a `FileProvider` with authority `${applicationId}.fileprovider`;
-add `res/xml/file_paths.xml` and the provider entry in the generated
-`AndroidManifest.xml` if you plan to ship the share action.
+plugin uses the checked-in `${applicationId}.fileprovider` provider; its
+`file_paths.xml` includes the app files, cache and external paths.
 
 ### iOS
 

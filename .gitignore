@@ -2,7 +2,8 @@ node_modules/
 dist/
 .vite/
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/*
+!src-tauri/gen/android/
 src-tauri/.proxmark3/
 src-tauri/cache/
 _temp/

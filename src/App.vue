@@ -2,6 +2,7 @@
 import { computed, onMounted, watchEffect } from 'vue'
 import AppShell from '@/components/AppShell.vue'
 import DesktopTitlebar from '@/components/DesktopTitlebar.vue'
+import ResizeHandles from '@/components/ResizeHandles.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { usePlatformStore } from '@/stores/platform'
 import { useConnectionStore } from '@/stores/connection'
@@ -27,6 +28,7 @@ onMounted(async () => {
 
 <template>
   <DesktopTitlebar v-if="frameless" />
+  <ResizeHandles v-if="frameless" />
   <AppShell />
   <ToastHost />
 </template>

@@ -18,8 +18,21 @@ repair_links() {
   fi
 }
 
+repair_android_cmake() {
+  local lists="$PLUGIN/proxmark3/client/experimental_lib/CMakeLists.txt"
+  [ -f "$lists" ] || return 0
+  if grep -q 'mkdir -p ${BZIP2_BUILD_DIR}\|mkdir -p ${LZ4_BUILD_DIR}' "$lists"; then
+    sed -i \
+      -e 's|mkdir -p ${BZIP2_BUILD_DIR}|${CMAKE_COMMAND} -E make_directory ${BZIP2_BUILD_DIR}|' \
+      -e 's|mkdir -p ${LZ4_BUILD_DIR}|${CMAKE_COMMAND} -E make_directory ${LZ4_BUILD_DIR}|' \
+      "$lists"
+    echo "Patched Android ExternalProject mkdir commands"
+  fi
+}
+
 if [ -f "$PLUGIN/Cargo.toml" ]; then
   repair_links
+  repair_android_cmake
   echo "Proxmark3 plugin already present: $PLUGIN"
   exit 0
 fi
@@ -36,4 +49,5 @@ fi
 rm -rf "$PLUGIN"
 tar -xzf "$ARCHIVE" -C "$EXTRACT"
 repair_links
+repair_android_cmake
 echo "Proxmark3 plugin ready: $PLUGIN"

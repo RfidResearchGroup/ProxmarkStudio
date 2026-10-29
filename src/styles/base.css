@@ -28,8 +28,26 @@ html.frameless .toast-host {
   top: calc(var(--window-chrome) + 14px);
 }
 
-html.frameless:fullscreen .titlebar {
+html.frameless:fullscreen .titlebar,
+html.frameless:fullscreen .resize-layer {
   display: none;
+}
+
+html.frameless:fullscreen .shell {
+  margin-top: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+html.frameless:fullscreen .sidebar {
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+html.frameless:fullscreen .shell__main {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 html.frameless:fullscreen .terminal-page {

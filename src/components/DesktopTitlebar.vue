@@ -88,19 +88,19 @@ onUnmounted(() => {
     </div>
 
     <div class="window-controls" @dblclick.stop>
-      <button class="window-control" title="Minimize" aria-label="Minimize" @click.stop="minimize">
+      <button class="window-control" :title="settings.t('window.minimize')" :aria-label="settings.t('window.minimize')" @click.stop="minimize">
         <Minus :size="14" />
       </button>
       <button
         class="window-control"
-        :title="maximized ? 'Restore' : 'Maximize'"
-        :aria-label="maximized ? 'Restore' : 'Maximize'"
+        :title="settings.t(maximized ? 'window.restore' : 'window.maximize')"
+        :aria-label="settings.t(maximized ? 'window.restore' : 'window.maximize')"
         @click.stop="toggleMaximize"
       >
         <Copy v-if="maximized" :size="12" />
         <Square v-else :size="11" />
       </button>
-      <button class="window-control window-control--close" title="Close" aria-label="Close" @click.stop="close">
+      <button class="window-control window-control--close" :title="settings.t('window.close')" :aria-label="settings.t('window.close')" @click.stop="close">
         <X :size="15" />
       </button>
     </div>

@@ -64,6 +64,10 @@ export const en = {
   'shell.statusBusy': 'Link in progress',
   'shell.statusOnline': 'Device online',
   'shell.noSession': 'No active session',
+  'window.minimize': 'Minimize',
+  'window.maximize': 'Maximize',
+  'window.restore': 'Restore',
+  'window.close': 'Close',
 
   'home.eyebrow': 'COMMAND CENTER',
   'home.title': 'Your Proxmark, in focus.',

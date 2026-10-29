@@ -20,7 +20,15 @@ if (-not (Test-Path (Join-Path $msys 'gcc.exe'))) {
   throw "MSYS2 UCRT64 gcc was not found at $msys. Set PM3X_MINGW_BIN."
 }
 
-$env:PATH = "$msys;C:\UserProgram\msys2\usr\bin;$env:PATH"
+$cargoBin = ''
+$localRust = Join-Path $root '_temp/cargo/bin'
+if (Test-Path $localRust) {
+  $cargoBin = $localRust
+  $env:CARGO_HOME = Join-Path $root '_temp/cargo'
+  $env:RUSTUP_HOME = Join-Path $root '_temp/rustup'
+}
+
+$env:PATH = @($cargoBin, $msys, 'C:\UserProgram\msys2\usr\bin', $env:PATH) -join ';'
 $env:PM3X_MINGW_BIN = $msys
 $env:CMAKE = Join-Path $msys 'cmake.exe'
 $env:RUSTUP_TOOLCHAIN = 'stable-x86_64-pc-windows-gnu'

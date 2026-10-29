@@ -19,13 +19,34 @@ function Repair-Links {
   $content = Get-Content -Raw $Path
   if ($content -match 'links = "pm3bridge"') {
     $content = $content.Replace('links = "pm3bridge"', 'links = "proxmark3"')
-    Set-Content -NoNewline -Encoding utf8 $Path $content
+    [System.IO.File]::WriteAllText($Path, $content, (New-Object System.Text.UTF8Encoding($false)))
     Write-Host 'Patched Cargo links key: pm3bridge -> proxmark3' -ForegroundColor Yellow
+  }
+}
+
+# The upstream Android CMake uses `mkdir -p` inside ExternalProject commands.
+# Windows CMake executes those through cmd.exe, where `mkdir -p` is invalid.
+# `cmake -E make_directory` is portable and keeps the build working on all hosts.
+function Repair-AndroidCMake {
+  $cmakeLists = Join-Path $pluginDir 'proxmark3/client/experimental_lib/CMakeLists.txt'
+  if (-not (Test-Path $cmakeLists)) { return }
+  $content = Get-Content -Raw $cmakeLists
+  $updated = $content.Replace(
+    'mkdir -p ${BZIP2_BUILD_DIR}',
+    '${CMAKE_COMMAND} -E make_directory ${BZIP2_BUILD_DIR}'
+  ).Replace(
+    'mkdir -p ${LZ4_BUILD_DIR}',
+    '${CMAKE_COMMAND} -E make_directory ${LZ4_BUILD_DIR}'
+  )
+  if ($updated -ne $content) {
+    [System.IO.File]::WriteAllText($cmakeLists, $updated, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host 'Patched Android ExternalProject mkdir commands' -ForegroundColor Yellow
   }
 }
 
 if ((Test-Path $manifest) -and -not $Force) {
   Repair-Links -Path $manifest
+  Repair-AndroidCMake
   Write-Host "Proxmark3 plugin already present: $pluginDir" -ForegroundColor Green
   exit 0
 }
@@ -46,4 +67,5 @@ if (-not (Test-Path $manifest)) {
   throw "Extraction failed; expected $manifest"
 }
 Repair-Links -Path $manifest
+Repair-AndroidCMake
 Write-Host "Proxmark3 plugin ready: $pluginDir" -ForegroundColor Green
