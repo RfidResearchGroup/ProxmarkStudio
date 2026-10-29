@@ -13,7 +13,8 @@ mkdir -p "$TEMP" "$EXTRACT"
 
 repair_links() {
   if grep -q 'links = "pm3bridge"' "$PLUGIN/Cargo.toml"; then
-    sed -i 's/links = "pm3bridge"/links = "proxmark3"/' "$PLUGIN/Cargo.toml"
+    sed -i.bak 's/links = "pm3bridge"/links = "proxmark3"/' "$PLUGIN/Cargo.toml"
+    rm -f "$PLUGIN/Cargo.toml.bak"
     echo "Patched Cargo links key: pm3bridge -> proxmark3"
   fi
 }
@@ -22,10 +23,11 @@ repair_android_cmake() {
   local lists="$PLUGIN/proxmark3/client/experimental_lib/CMakeLists.txt"
   [ -f "$lists" ] || return 0
   if grep -q 'mkdir -p ${BZIP2_BUILD_DIR}\|mkdir -p ${LZ4_BUILD_DIR}' "$lists"; then
-    sed -i \
+    sed -i.bak \
       -e 's|mkdir -p ${BZIP2_BUILD_DIR}|${CMAKE_COMMAND} -E make_directory ${BZIP2_BUILD_DIR}|' \
       -e 's|mkdir -p ${LZ4_BUILD_DIR}|${CMAKE_COMMAND} -E make_directory ${LZ4_BUILD_DIR}|' \
       "$lists"
+    rm -f "$lists.bak"
     echo "Patched Android ExternalProject mkdir commands"
   fi
 }
@@ -39,7 +41,11 @@ fi
 
 echo "Downloading tauri-plugin-proxmark3 0.2.1..."
 curl -fL "$URL" -o "$ARCHIVE"
-ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+else
+  ACTUAL="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+fi
 if [ "$ACTUAL" != "$SHA256" ]; then
   rm -f "$ARCHIVE"
   echo "Plugin archive checksum mismatch: expected=$SHA256 actual=$ACTUAL" >&2

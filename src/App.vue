@@ -10,10 +10,14 @@ import { isTauri } from '@/services/backend'
 
 const platform = usePlatformStore()
 const connection = useConnectionStore()
+const mobileUserAgent =
+  typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
 // The window is frameless on desktop, so we draw our own chrome. Mobile
 // platforms have no decorations to replace and keep their full height.
-const frameless = computed(() => isTauri && platform.info.family === 'desktop')
+const frameless = computed(
+  () => isTauri && !mobileUserAgent && platform.info.family === 'desktop',
+)
 
 watchEffect(() => {
   if (typeof document === 'undefined') return

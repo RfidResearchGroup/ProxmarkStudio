@@ -56,7 +56,6 @@ const toast = useToastStore()
 const method = ref<Method>('usb')
 const selectedUsb = ref('')
 const selectedSpp = ref('')
-const sppMac = ref('')
 const bleDevices = ref<BleDeviceInfo[]>([])
 const selectedBle = ref<BleDeviceInfo | null>(null)
 const scanning = ref(false)
@@ -101,7 +100,6 @@ const methods = computed(() => [
   },
 ])
 
-const isLinux = computed(() => platform.info.os === 'linux')
 const isConnected = computed(() => connection.isConnected)
 const connecting = computed(() => connection.status === 'connecting' && !connection.isConnected)
 const scanBusy = computed(() => scanning.value || connection.status === 'connecting')
@@ -134,12 +132,7 @@ const heroStateClass = computed(() => {
 
 const selectedPortValid = computed(() => {
   if (method.value === 'usb') return Boolean(selectedUsb.value)
-  if (method.value === 'spp') {
-    if (isLinux.value && sppMac.value.trim()) {
-      return /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(sppMac.value.trim())
-    }
-    return Boolean(selectedSpp.value)
-  }
+  if (method.value === 'spp') return Boolean(selectedSpp.value)
   return Boolean(selectedBle.value)
 })
 
@@ -253,11 +246,7 @@ async function connect() {
         : undefined
       await connection.connectBle(selectedBle.value, config)
     } else if (method.value === 'spp') {
-      if (isLinux.value && sppMac.value.trim()) {
-        await connection.connectSppMac(sppMac.value.trim().toUpperCase())
-      } else {
-        await connection.connectSpp(selectedSpp.value)
-      }
+      await connection.connectSpp(selectedSpp.value)
     }
   } catch {
     /* the store reports a toast and keeps lastError */
@@ -651,7 +640,7 @@ onUnmounted(() => {
                   :key="port.path"
                   class="device-option"
                   :class="{ 'device-option--selected': selectedSpp === port.path }"
-                  @click="selectedSpp = port.path; sppMac = ''"
+                  @click="selectedSpp = port.path"
                 >
                   <span class="device-option__icon device-option__icon--ble"><Bluetooth :size="17" /></span>
                   <span class="device-option__main">
@@ -672,19 +661,6 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <div v-if="isLinux" class="spp-mac">
-                <div class="spp-mac__label">
-                  <span class="mono">{{ settings.t('home.sppMac') }}</span>
-                  <span>{{ settings.t('home.sppMacHint') }}</span>
-                </div>
-                <input
-                  v-model="sppMac"
-                  class="input input--mono"
-                  :placeholder="settings.t('home.sppMacPlaceholder')"
-                  spellcheck="false"
-                  @input="selectedSpp = ''"
-                />
-              </div>
             </template>
 
             <footer v-if="methods.find((entry) => entry.id === method)?.available" class="connect-panel__foot">

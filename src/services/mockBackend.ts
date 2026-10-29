@@ -11,7 +11,7 @@ import type {
   SerialPortInfo,
 } from './backend'
 
-const MOCK_ROOT = 'C:\\Users\\rfid\\AppData\\Roaming\\com.forestweave.proxmarkstudio\\.proxmark3'
+const MOCK_ROOT = 'C:\\Users\\rfid\\AppData\\Roaming\\cn.rfidresearchgroup.proxmarkstudio\\.proxmark3'
 const RELEASE_TAG = 'v0.2.1'
 const EXPECTED_COMMIT = 'd596fe6b04fb90356f04433eb82ff1ae354ada40'
 

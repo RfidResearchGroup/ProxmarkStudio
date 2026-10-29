@@ -1,4 +1,4 @@
-package com.forestweave.proxmarkstudio
+﻿package cn.rfidresearchgroup.proxmarkstudio
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
@@ -9,3 +9,4 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
   }
 }
+

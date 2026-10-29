@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { getCurrentWindow, type ResizeDirection } from '@tauri-apps/api/window'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+
+type ResizeDirection =
+  | 'East'
+  | 'North'
+  | 'NorthEast'
+  | 'NorthWest'
+  | 'South'
+  | 'SouthEast'
+  | 'SouthWest'
+  | 'West'
 
 const appWindow = getCurrentWindow()
 

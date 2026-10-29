@@ -44,7 +44,7 @@ ULTIMATE, ICOPVX, Proxmark5 and other Proxmark variants.
 | --- | --- | --- | --- | --- | --- |
 | USB serial | Yes | Yes | Yes | Not exposed by this build | Unsupported by iOS |
 | Bluetooth LE | Yes | Yes | Yes | Yes | Yes |
-| Bluetooth SPP | Yes (paired COM) | Yes (paired serial) | Yes (BlueZ / `bt:`) | Not exposed by this build | Unsupported by iOS |
+| Bluetooth SPP | Yes (paired COM) | Yes (paired serial) | Yes (paired rfcomm) | Not exposed by this build | Unsupported by iOS |
 | Share sheet | Reveal in Explorer | Reveal in Finder | Open folder | Yes | Yes |
 | Frameless desktop chrome | Yes | Yes | Yes | n/a | n/a |
 
@@ -180,8 +180,10 @@ bash scripts/setup-plugin.sh
 pnpm tauri dev          # or: pnpm tauri build
 ```
 
-On Linux the plugin's BlueZ build supports `bt:AA:BB:…` SPP addresses in
-addition to `/dev/rfcomm*` and USB CDC ports.
+On Linux, pair the device in the system Bluetooth settings and bind an rfcomm
+port (`/dev/rfcomm*`). The app lists it alongside USB CDC ports; the embedded
+client is built with Bluetooth transport support disabled, so SPP is handled
+through the OS serial layer.
 
 ### Android
 
@@ -229,9 +231,9 @@ support.
 | Download cache | `<app-data>/cache` |
 | App preferences | Local storage (`pm3-studio.*` keys) |
 
-`<app-data>` is `%APPDATA%\com.forestweave.proxmarkstudio` on Windows,
-`~/Library/Application Support/com.forestweave.proxmarkstudio` on macOS, and the
-XDG data directory on Linux.
+`<app-data>` is `%APPDATA%\cn.rfidresearchgroup.proxmarkstudio` on Windows,
+`~/Library/Application Support/cn.rfidresearchgroup.proxmarkstudio` on macOS,
+and the XDG data directory on Linux.
 
 ## Notes and limitations
 

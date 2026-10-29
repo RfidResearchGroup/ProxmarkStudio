@@ -218,18 +218,6 @@ export const useConnectionStore = defineStore('connection', () => {
     }
   }
 
-  async function connectSppMac(mac: string) {
-    lastBleDevice.value = null
-    try {
-      const info = await openSession(`bt:${mac}`, 'spp', `SPP · ${mac}`)
-      toast.success(settings.t('home.connectedToast', { port: mac }))
-      return info
-    } catch (error) {
-      toast.error(settings.t('home.connectionFailed'), errorMessage(error))
-      throw error
-    }
-  }
-
   async function connectBle(bleDevice: BleDeviceInfo, config?: BleUartConfig) {
     if (isConnected.value) await disconnect()
     status.value = 'connecting'
@@ -351,7 +339,6 @@ export const useConnectionStore = defineStore('connection', () => {
     probeDevice,
     connectUsb,
     connectSpp,
-    connectSppMac,
     connectBle,
     disconnect,
     reconnect,
