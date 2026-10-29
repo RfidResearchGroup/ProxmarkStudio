@@ -14,7 +14,6 @@ import {
   PlugZap,
   Radio,
   RefreshCw,
-  ScanLine,
   ShieldCheck,
   SlidersHorizontal,
   Terminal,
@@ -48,8 +47,14 @@ interface UnifiedDevice {
   detail: string
   meta: string
   port?: SerialPortInfo
-  ble?: BleDeviceInfo
+  ble?: BleDeviceEntry
 }
+
+interface BleDeviceEntry extends BleDeviceInfo {
+  lastSeen: number
+}
+
+const BLE_STALE_MS = 15000
 
 const router = useRouter()
 const settings = useSettingsStore()
@@ -58,7 +63,7 @@ const platform = usePlatformStore()
 const toast = useToastStore()
 
 const selectedId = ref('')
-const bleDevices = ref<BleDeviceInfo[]>([])
+const bleDevices = ref<BleDeviceEntry[]>([])
 const scanning = ref(false)
 const scanned = ref(false)
 const refreshing = ref(false)
@@ -77,13 +82,17 @@ let clockTimer: number | null = null
 
 const capabilities = computed(() => platform.info.capabilities)
 
-function deviceScore(device: UnifiedDevice): number {
-  let score = 0
-  if (/pm3|proxmark/i.test(device.name)) score += 100
-  if (device.kind === 'usb') score += 30
-  else if (device.kind === 'spp') score += 20
-  else score += 10 + (device.ble?.rssi ?? -100) / 10
-  return score
+function isPm3Name(name: string): boolean {
+  return /pm3|proxmark/i.test(name)
+}
+
+function compareDevices(a: UnifiedDevice, b: UnifiedDevice): number {
+  const pmA = isPm3Name(a.name) ? 1 : 0
+  const pmB = isPm3Name(b.name) ? 1 : 0
+  if (pmA !== pmB) return pmB - pmA
+  const order: Record<DeviceKind, number> = { usb: 0, spp: 1, ble: 2 }
+  if (order[a.kind] !== order[b.kind]) return order[a.kind] - order[b.kind]
+  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 const unifiedDevices = computed<UnifiedDevice[]>(() => {
@@ -114,17 +123,21 @@ const unifiedDevices = computed<UnifiedDevice[]>(() => {
   }
   if (capabilities.value.ble) {
     for (const device of bleDevices.value) {
+      const age = Math.max(0, Math.floor((now.value - device.lastSeen) / 1000))
       devices.push({
         id: `ble:${device.address}`,
         kind: 'ble',
         name: device.name,
         detail: device.address,
-        meta: settings.t('home.rssi', { rssi: device.rssi }),
+        meta:
+          age > 2
+            ? settings.t('home.bleLastSeen', { seconds: age })
+            : settings.t('home.rssi', { rssi: device.rssi }),
         ble: device,
       })
     }
   }
-  return devices.sort((a, b) => deviceScore(b) - deviceScore(a))
+  return devices.sort(compareDevices)
 })
 
 const selectedDevice = computed(
@@ -290,26 +303,52 @@ function openTerminal() {
   void router.push('/terminal')
 }
 
-async function startBleScan() {
+async function scanDevices() {
   if (scanning.value) {
     await stopScanning()
     scanning.value = false
     if (scanTimer) window.clearTimeout(scanTimer)
+    scanTimer = null
     return
   }
+  refreshing.value = true
+  try {
+    if (isAndroid) await ensureBluetoothPermissions().catch(() => {})
+    await connection.refreshPorts()
+    syncSelection()
+  } finally {
+    refreshing.value = false
+  }
+  if (capabilities.value.ble) await startBleScan()
+}
+
+async function startBleScan() {
+  if (scanning.value) return
   scanning.value = true
   scanned.value = false
-  bleDevices.value = []
   try {
     bluetoothState.value = await getBluetoothState()
     void scanForDevices((devices) => {
-      const sorted = [...devices].sort((a, b) => {
-        const pm3A = /pm3|proxmark/i.test(a.name) ? 1 : 0
-        const pm3B = /pm3|proxmark/i.test(b.name) ? 1 : 0
-        if (pm3A !== pm3B) return pm3B - pm3A
-        return b.rssi - a.rssi
-      })
-      bleDevices.value = sorted
+      const seenAt = Date.now()
+      const observed = new Set(devices.map((device) => device.address))
+      for (const device of devices) {
+        const existing = bleDevices.value.find((entry) => entry.address === device.address)
+        if (existing) {
+          Object.assign(existing, device, { lastSeen: seenAt })
+        } else {
+          bleDevices.value.push({ ...device, lastSeen: seenAt })
+        }
+      }
+      bleDevices.value = bleDevices.value
+        .filter(
+          (device) => observed.has(device.address) || seenAt - device.lastSeen <= BLE_STALE_MS,
+        )
+        .sort((a, b) => {
+          const pmA = isPm3Name(a.name) ? 1 : 0
+          const pmB = isPm3Name(b.name) ? 1 : 0
+          if (pmA !== pmB) return pmB - pmA
+          return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        })
       scanned.value = true
       syncSelection()
     }, 12000).catch((error) => {
@@ -374,6 +413,11 @@ onMounted(async () => {
   syncSelection()
   clockTimer = window.setInterval(() => {
     now.value = Date.now()
+    const cutoff = now.value - BLE_STALE_MS
+    if (bleDevices.value.some((device) => device.lastSeen < cutoff)) {
+      bleDevices.value = bleDevices.value.filter((device) => device.lastSeen >= cutoff)
+      syncSelection()
+    }
   }, 5000)
   if (capabilities.value.ble) {
     void getBluetoothState().then((state) => {
@@ -446,22 +490,19 @@ onUnmounted(() => {
               </div>
               <div class="connect-panel__actions">
                 <button
-                  class="btn btn--ghost btn--sm"
-                  :disabled="connection.loadingPorts || refreshing"
-                  @click="refreshAll"
-                >
-                  <RefreshCw :size="14" :class="{ spinning: connection.loadingPorts || refreshing }" />
-                  {{ settings.t('home.usbScan') }}
-                </button>
-                <button
-                  v-if="capabilities.ble"
                   class="btn btn--sm"
                   :class="scanning ? 'btn--outline' : 'btn--ghost'"
-                  @click="startBleScan"
+                  @click="scanDevices"
                 >
-                  <ScanLine v-if="!scanning" :size="14" />
+                  <RefreshCw v-if="!scanning" :size="14" :class="{ spinning: refreshing }" />
                   <span v-else class="spinner spinner--sm" />
-                  {{ scanning ? settings.t('home.bleScanning') : settings.t('home.bleScan') }}
+                  {{
+                    scanning
+                      ? settings.t('home.stopScan')
+                      : refreshing
+                        ? settings.t('home.scanning')
+                        : settings.t('home.scanDevices')
+                  }}
                 </button>
               </div>
             </div>
@@ -2107,12 +2148,29 @@ onUnmounted(() => {
 
 
 @media (max-width: 640px) {
-  .home .page-head {
-    display: none;
+  .home {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - var(--header-height) - env(safe-area-inset-top));
+  }
+
+  .home > .page-head {
+    flex: none;
   }
 
   .hero:not(.hero--connected) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: calc(100dvh - 360px);
     padding: 12px;
+  }
+
+  .hero:not(.hero--connected) .hero__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .hero:not(.hero--connected) .hero__status,
@@ -2126,6 +2184,10 @@ onUnmounted(() => {
   }
 
   .connect-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
     margin-top: 10px;
   }
 
@@ -2147,6 +2209,12 @@ onUnmounted(() => {
     max-height: min(42vh, 390px);
   }
 
+  .device-list--unified {
+    flex: 1;
+    max-height: none;
+    min-height: 180px;
+  }
+
   .device-option {
     padding: 10px 9px;
   }
@@ -2161,6 +2229,7 @@ onUnmounted(() => {
   }
 
   .connect-panel__foot {
+    flex: none;
     padding: 9px;
   }
 
