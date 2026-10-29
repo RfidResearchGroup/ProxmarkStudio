@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
@@ -19,6 +20,8 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import app.tauri.annotation.Command
@@ -31,8 +34,10 @@ import app.tauri.plugin.Plugin
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
+import java.util.LinkedHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "Pm3Transport"
 private const val ACTION_USB_PERMISSION = "app.tauri.transport.USB_PERMISSION"
@@ -273,6 +278,108 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun scanSpp(invoke: Invoke) {
+        try {
+            requireBluetoothPermission()
+            val adapter = bluetoothAdapter() ?: return invoke.reject("Bluetooth is unavailable")
+            if (!adapter.isEnabled) return invoke.reject("Bluetooth is disabled")
+            val found = LinkedHashMap<String, JSObject>()
+
+            fun addDevice(device: BluetoothDevice) {
+                if (!isLikelySpp(device)) return
+                val name = device.name
+                if (name.isNullOrBlank()) return
+                val item = JSObject()
+                item.put("address", device.address)
+                item.put("name", name)
+                item.put("paired", device.bondState == BluetoothDevice.BOND_BONDED)
+                found[device.address] = item
+            }
+
+            adapter.bondedDevices.forEach(::addDevice)
+            val finished = AtomicBoolean(false)
+            var receiver: BroadcastReceiver? = null
+
+            fun finish() {
+                if (!finished.compareAndSet(false, true)) return
+                runCatching { adapter.cancelDiscovery() }
+                receiver?.let { runCatching { activity.unregisterReceiver(it) } }
+                val devices = JSArray()
+                found.values.forEach { devices.put(it) }
+                invoke.resolve(JSObject().put("devices", devices))
+            }
+
+            receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    when (intent.action) {
+                        BluetoothDevice.ACTION_FOUND -> {
+                            @Suppress("DEPRECATION")
+                            val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                            if (device != null) addDevice(device)
+                        }
+                        BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> finish()
+                    }
+                }
+            }
+            val filter = IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_FOUND)
+                addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            }
+            if (Build.VERSION.SDK_INT >= 33) {
+                activity.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.registerReceiver(receiver, filter)
+            }
+            if (!adapter.startDiscovery()) {
+                finish()
+            } else {
+                Handler(Looper.getMainLooper()).postDelayed({ finish() }, 12000)
+            }
+        } catch (error: Exception) {
+            invoke.reject(error.message ?: "Failed to scan for Bluetooth devices")
+        }
+    }
+
+    private fun ensureBonded(device: BluetoothDevice, timeoutMs: Long = 30000): Boolean {
+        if (device.bondState == BluetoothDevice.BOND_BONDED) return true
+        val latch = CountDownLatch(1)
+        var bonded = false
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
+                @Suppress("DEPRECATION")
+                val changed = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                if (changed?.address != device.address) return
+                val state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
+                if (state == BluetoothDevice.BOND_BONDED) {
+                    bonded = true
+                    latch.countDown()
+                } else if (state != BluetoothDevice.BOND_BONDING) {
+                    latch.countDown()
+                }
+            }
+        }
+        val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                activity.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.registerReceiver(receiver, filter)
+            }
+            val started = device.bondState == BluetoothDevice.BOND_BONDING || device.createBond()
+            if (!started) return false
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            return bonded
+        } catch (_: Exception) {
+            return false
+        } finally {
+            runCatching { activity.unregisterReceiver(receiver) }
+        }
+    }
+
+    @Command
     fun openSpp(invoke: Invoke) {
         try {
             requireBluetoothPermission()
@@ -285,6 +392,10 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
             adapter.cancelDiscovery()
             Thread {
                 try {
+                    if (device.bondState != BluetoothDevice.BOND_BONDED && !ensureBonded(device)) {
+                        invoke.reject("The Bluetooth device is not paired. Confirm the system pairing prompt and try again.")
+                        return@Thread
+                    }
                     var lastError: Exception? = null
                     var connected: BluetoothSocket? = null
                     val factories: List<() -> BluetoothSocket> = listOf(

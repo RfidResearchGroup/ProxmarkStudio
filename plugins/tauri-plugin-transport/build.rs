@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "open_usb",
     "list_spp",
     "open_spp",
+    "scan_spp",
     "write",
     "close",
     "register_listener",

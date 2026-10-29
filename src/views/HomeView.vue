@@ -26,7 +26,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConnectionStore } from '@/stores/connection'
 import { usePlatformStore } from '@/stores/platform'
 import { useToastStore } from '@/stores/toast'
-import { openExternal, isAndroid, type SerialPortInfo } from '@/services/backend'
+import { openExternal, isAndroid, scanSppDevices, type SerialPortInfo } from '@/services/backend'
 import {
   ensureBluetoothPermissions,
   getBluetoothState,
@@ -64,6 +64,7 @@ const toast = useToastStore()
 
 const selectedId = ref('')
 const bleDevices = ref<BleDeviceEntry[]>([])
+const discoveredSpp = ref<SerialPortInfo[]>([])
 const scanning = ref(false)
 const scanned = ref(false)
 const refreshing = ref(false)
@@ -95,6 +96,15 @@ function compareDevices(a: UnifiedDevice, b: UnifiedDevice): number {
   return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+const allSppPorts = computed<SerialPortInfo[]>(() => {
+  const ports = new Map<string, SerialPortInfo>()
+  for (const port of connection.sppPorts) ports.set(port.path, port)
+  for (const port of discoveredSpp.value) {
+    if (!ports.has(port.path)) ports.set(port.path, port)
+  }
+  return [...ports.values()]
+})
+
 const unifiedDevices = computed<UnifiedDevice[]>(() => {
   const devices: UnifiedDevice[] = []
   if (capabilities.value.usbSerial) {
@@ -110,13 +120,16 @@ const unifiedDevices = computed<UnifiedDevice[]>(() => {
     }
   }
   if (capabilities.value.spp) {
-    for (const port of connection.sppPorts) {
+    for (const port of allSppPorts.value) {
       devices.push({
         id: `spp:${port.path}`,
         kind: 'spp',
         name: port.product || port.path,
         detail: port.path,
-        meta: settings.t('home.paired'),
+        meta:
+          port.paired === false
+            ? settings.t('home.unpaired')
+            : settings.t('home.paired'),
         port,
       })
     }
@@ -319,7 +332,30 @@ async function scanDevices() {
   } finally {
     refreshing.value = false
   }
-  if (capabilities.value.ble) await startBleScan()
+
+  const sppPromise =
+    isAndroid && capabilities.value.spp ? scanSppDevices().catch(() => []) : Promise.resolve([])
+  if (capabilities.value.ble) {
+    await startBleScan()
+  } else if (capabilities.value.spp) {
+    scanning.value = true
+  }
+
+  if (isAndroid && capabilities.value.spp) {
+    const devices = await sppPromise
+    discoveredSpp.value = devices.map((device) => ({
+      path: device.address,
+      kind: 'bluetooth' as const,
+      manufacturer: null,
+      product: device.name,
+      serialNumber: null,
+      vid: null,
+      pid: null,
+      paired: device.paired,
+    }))
+    syncSelection()
+    if (!capabilities.value.ble) scanning.value = false
+  }
 }
 
 async function startBleScan() {

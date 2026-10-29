@@ -8,6 +8,7 @@ Default permissions for the Android transport bridge
 - `allow-open-usb`
 - `allow-list-spp`
 - `allow-open-spp`
+- `allow-scan-spp`
 - `allow-write`
 - `allow-close`
 - `allow-register-listener`
@@ -200,6 +201,32 @@ Enables the remove_listener command without any pre-configured scope.
 <td>
 
 Denies the remove_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:allow-scan-spp`
+
+</td>
+<td>
+
+Enables the scan_spp command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:deny-scan-spp`
+
+</td>
+<td>
+
+Denies the scan_spp command without any pre-configured scope.
 
 </td>
 </tr>

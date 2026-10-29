@@ -184,6 +184,7 @@ export const en = {
   'home.connectTo': 'Connect to {name}',
   'home.rssi': '{rssi} dBm',
   'home.paired': 'Paired',
+  'home.unpaired': 'Not paired',
   'home.bleBridge': 'BLE → TCP bridge',
   'home.bleBridgeNote': 'The client talks to a loopback bridge; BLE frames are forwarded transparently.',
   'home.deviceSummary': 'Session overview',

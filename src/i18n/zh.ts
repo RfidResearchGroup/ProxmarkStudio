@@ -186,6 +186,7 @@ export const zh: Record<TranslationKey, string> = {
   'home.connectTo': '连接到 {name}',
   'home.rssi': '{rssi} dBm',
   'home.paired': '已配对',
+  'home.unpaired': '未配对',
   'home.bleBridge': 'BLE → TCP 桥接',
   'home.bleBridgeNote': '客户端连接本地回环桥接，BLE 数据帧会被透明转发。',
   'home.deviceSummary': '会话概览',

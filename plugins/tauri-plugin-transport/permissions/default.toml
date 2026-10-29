@@ -1,10 +1,11 @@
-﻿[default]
+[default]
 description = "Default permissions for the Android transport bridge"
 permissions = [
     "allow-list-usb",
     "allow-open-usb",
     "allow-list-spp",
     "allow-open-spp",
+    "allow-scan-spp",
     "allow-write",
     "allow-close",
     "allow-register-listener",

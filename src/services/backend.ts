@@ -49,6 +49,7 @@ export interface SerialPortInfo {
   serialNumber?: string | null
   vid?: number | null
   pid?: number | null
+  paired?: boolean
 }
 
 export interface FileEntry {
@@ -200,10 +201,24 @@ export async function listSerialPorts(): Promise<SerialPortInfo[]> {
         serialNumber: null,
         vid: null,
         pid: null,
+        paired: true,
       })),
     ]
   }
   return invoke<SerialPortInfo[]>('list_serial_ports')
+}
+
+export interface SppScanDevice {
+  address: string
+  name: string
+  paired: boolean
+}
+
+/** Ask Android to run a classic Bluetooth inquiry for nearby SPP devices. */
+export async function scanSppDevices(): Promise<SppScanDevice[]> {
+  if (!isAndroid) return []
+  const result = await invoke<{ devices: SppScanDevice[] }>('plugin:transport|scan_spp')
+  return result.devices
 }
 
 export async function startBleBridge(): Promise<BridgeInfo> {

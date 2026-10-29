@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-scan-spp"
+description = "Enables the scan_spp command without any pre-configured scope."
+commands.allow = ["scan_spp"]
+
+[[permission]]
+identifier = "deny-scan-spp"
+description = "Denies the scan_spp command without any pre-configured scope."
+commands.deny = ["scan_spp"]
