@@ -29,23 +29,25 @@ const settings = useSettingsStore()
 const toast = useToastStore()
 
 const terminalHost = ref<HTMLDivElement | null>(null)
+const terminalPage = ref<HTMLDivElement | null>(null)
 const terminalReady = ref(false)
 const running = ref(false)
 const lastCommand = ref('')
 const historyCount = ref(0)
 const fullscreen = ref(false)
 const reconnecting = ref(false)
+const fontSize = ref(window.innerWidth < 640 ? 14 : 13.5)
+const ctrlArmed = ref(false)
+const shiftArmed = ref(false)
 
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
 let resizeObserver: ResizeObserver | null = null
-let pinchDistance = 0
-let pinchFont = 0
-let pinchFrame: number | null = null
-let removeTouchGestures: (() => void) | null = null
+let viewportFrame: number | null = null
 let lineBuffer = ''
 let runningBuffer = ''
 let colorPending = ''
+let cursorPos = 0
 let history: string[] = []
 let historyIndex = -1
 
@@ -143,51 +145,113 @@ function writeWelcome() {
   if (connection.isConnected) term.write(prompt)
 }
 
-function touchDistance(touches: TouchList): number {
-  const a = touches.item(0)
-  const b = touches.item(1)
-  if (!a || !b) return 0
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+function renderLine() {
+  if (!term) return
+  term.write('\r\x1b[2K')
+  term.write(prompt)
+  term.write(lineBuffer)
+  const back = lineBuffer.length - cursorPos
+  if (back > 0) term.write(`\x1b[${back}D`)
 }
 
-function installTouchGestures(host: HTMLElement) {
-  const onStart = (event: TouchEvent) => {
-    if (event.touches.length !== 2) return
-    pinchDistance = touchDistance(event.touches)
-    pinchFont = term?.options.fontSize ?? 13.5
+function replaceCurrentLine(next: string) {
+  lineBuffer = next
+  cursorPos = next.length
+  renderLine()
+}
+
+function insertText(text: string) {
+  if (!text) return
+  lineBuffer = lineBuffer.slice(0, cursorPos) + text + lineBuffer.slice(cursorPos)
+  cursorPos += text.length
+  renderLine()
+}
+
+function moveCursor(delta: number) {
+  cursorPos = Math.max(0, Math.min(lineBuffer.length, cursorPos + delta))
+  renderLine()
+}
+
+function setFontSize(next: number) {
+  fontSize.value = Math.min(24, Math.max(10, next))
+  if (term) term.options.fontSize = fontSize.value
+  requestAnimationFrame(() => {
+    fitAddon?.fit()
+    term?.focus()
+  })
+}
+
+function syncViewport() {
+  if (!terminalPage.value) return
+  if (window.matchMedia('(max-width: 860px)').matches && window.visualViewport) {
+    terminalPage.value.style.height = `${window.visualViewport.height}px`
+  } else {
+    terminalPage.value.style.height = ''
   }
-  const onMove = (event: TouchEvent) => {
-    if (event.touches.length !== 2 || pinchDistance <= 0) return
-    event.preventDefault()
-    const next = Math.min(24, Math.max(9, pinchFont * (touchDistance(event.touches) / pinchDistance)))
-    if (!term || Math.abs(next - (term.options.fontSize ?? 13.5)) < 0.05) return
-    term.options.fontSize = next
-    if (pinchFrame === null) {
-      pinchFrame = window.requestAnimationFrame(() => {
-        pinchFrame = null
-        fitAddon?.fit()
-      })
+  if (viewportFrame === null) {
+    viewportFrame = window.requestAnimationFrame(() => {
+      viewportFrame = null
+      fitAddon?.fit()
+    })
+  }
+}
+
+function installViewportWatcher() {
+  window.addEventListener('resize', syncViewport)
+  window.visualViewport?.addEventListener('resize', syncViewport)
+  window.visualViewport?.addEventListener('scroll', syncViewport)
+  syncViewport()
+}
+
+function removeViewportWatcher() {
+  window.removeEventListener('resize', syncViewport)
+  window.visualViewport?.removeEventListener('resize', syncViewport)
+  window.visualViewport?.removeEventListener('scroll', syncViewport)
+  if (viewportFrame !== null) window.cancelAnimationFrame(viewportFrame)
+  viewportFrame = null
+  if (terminalPage.value) terminalPage.value.style.height = ''
+}
+
+function toolbarKey(key: string) {
+  term?.focus()
+  if (key === 'ctrl') {
+    ctrlArmed.value = !ctrlArmed.value
+    term?.focus()
+    return
+  }
+  if (key === 'shift') {
+    shiftArmed.value = !shiftArmed.value
+    term?.focus()
+    return
+  }
+  if (key === 'left') {
+    moveCursor(-1)
+    return
+  }
+  if (key === 'right') {
+    moveCursor(1)
+    return
+  }
+  if (key === 'up' || key === 'down') {
+    void onTerminalData(key === 'up' ? '\u001b[A' : '\u001b[B')
+    return
+  }
+  if (key === 'escape') {
+    if (running.value) void sendInput('\x1b')
+    else {
+      lineBuffer = ''
+      cursorPos = 0
+      renderLine()
     }
+    return
   }
-  const onEnd = (event: TouchEvent) => {
-    if (event.touches.length < 2) {
-      pinchDistance = 0
-      pinchFont = 0
-    }
+  if (key === 'tab') {
+    if (running.value) void sendInput('\t')
+    else insertText('  ')
+    return
   }
-  host.addEventListener('touchstart', onStart, { passive: true })
-  host.addEventListener('touchmove', onMove, { passive: false })
-  host.addEventListener('touchend', onEnd, { passive: true })
-  host.addEventListener('touchcancel', onEnd, { passive: true })
-  removeTouchGestures = () => {
-    host.removeEventListener('touchstart', onStart)
-    host.removeEventListener('touchmove', onMove)
-    host.removeEventListener('touchend', onEnd)
-    host.removeEventListener('touchcancel', onEnd)
-    if (pinchFrame !== null) window.cancelAnimationFrame(pinchFrame)
-    pinchFrame = null
-    removeTouchGestures = null
-  }
+  if (key === 'pipe') insertText('|')
+  if (key === 'tilde') insertText('~')
 }
 
 function initialiseTerminal() {
@@ -196,7 +260,7 @@ function initialiseTerminal() {
     cursorBlink: true,
     cursorStyle: 'bar',
     fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || 'monospace',
-    fontSize: window.innerWidth < 640 ? 12 : 13.5,
+    fontSize: fontSize.value,
     lineHeight: 1.4,
     letterSpacing: 0.1,
     scrollback: 8000,
@@ -210,7 +274,6 @@ function initialiseTerminal() {
   term.loadAddon(fitAddon)
   term.open(terminalHost.value)
   fitAddon.fit()
-  installTouchGestures(terminalHost.value)
   terminalReady.value = true
   writeWelcome()
   term.focus()
@@ -247,22 +310,27 @@ function writePrompt() {
   term.write(prompt)
 }
 
-function replaceCurrentLine(next: string) {
-  if (!term) return
-  term.write('\r\x1b[2K')
-  term.write(prompt)
-  term.write(next)
-  lineBuffer = next
-}
-
 async function onTerminalData(data: string) {
   if (!term) return
+
+  if (data.length === 1 && ctrlArmed.value) {
+    ctrlArmed.value = false
+    const code = data.toUpperCase().charCodeAt(0)
+    data = code >= 64 && code <= 95 ? String.fromCharCode(code - 64) : data
+  } else if (data.length === 1 && shiftArmed.value) {
+    shiftArmed.value = false
+    data = data.toUpperCase()
+  }
 
   // Keep accepting input while a command is running. Some client commands
   // (tune/sniff/simulation loops) only exit when they receive Enter, and a few
   // prompts read a short answer from stdin.
   if (running.value) {
     if (!connection.isConnected) return
+    if (data === '\t') {
+      void sendInput('\t')
+      return
+    }
     if (data === '\r') {
       const payload = `${runningBuffer}\n`
       runningBuffer = ''
@@ -297,6 +365,7 @@ async function onTerminalData(data: string) {
   if (data === '\r') {
     const command = lineBuffer.trim()
     lineBuffer = ''
+    cursorPos = 0
     term.write('\r\n')
     if (!command) {
       writePrompt()
@@ -307,22 +376,35 @@ async function onTerminalData(data: string) {
   }
 
   if (data === '\u007F') {
-    if (!lineBuffer.length) return
-    lineBuffer = lineBuffer.slice(0, -1)
-    term.write('\b \b')
+    if (!cursorPos) return
+    lineBuffer = lineBuffer.slice(0, cursorPos - 1) + lineBuffer.slice(cursorPos)
+    cursorPos -= 1
+    renderLine()
     return
   }
 
   if (data === '\u0003') {
     lineBuffer = ''
+    cursorPos = 0
     term.write('^C\r\n')
     writePrompt()
     return
   }
 
   if (data === '\u000C') {
+    cursorPos = 0
     term.clear()
     writePrompt()
+    return
+  }
+
+  if (data === '\u001b[D') {
+    moveCursor(-1)
+    return
+  }
+
+  if (data === '\u001b[C') {
+    moveCursor(1)
     return
   }
 
@@ -341,12 +423,12 @@ async function onTerminalData(data: string) {
     return
   }
 
-  // Ignore remaining escape/control sequences. Printable input is appended.
+  // Ignore remaining escape/control sequences. Printable input is inserted at
+  // the current cursor position so toolbar arrows behave like a real shell.
   if (data.length > 1 && data.startsWith('\u001b')) return
   const printable = [...data].filter((char) => char >= ' ' && char !== '\u007f').join('')
   if (!printable) return
-  lineBuffer += printable
-  term.write(printable)
+  insertText(printable)
 }
 
 async function runCommand(command: string) {
@@ -486,6 +568,9 @@ watch(
   () => connection.isConnected,
   async (connected) => {
     if (connected) {
+      lineBuffer = ''
+      cursorPos = 0
+      historyIndex = -1
       await nextTick()
       if (!term) initialiseTerminal()
       else {
@@ -494,7 +579,6 @@ watch(
         term.focus()
       }
     } else if (term) {
-      removeTouchGestures?.()
       term.writeln('')
       term.writeln(`\x1b[33m${settings.t('terminal.sessionEnded')}\x1b[0m`)
       term.dispose()
@@ -516,6 +600,7 @@ watch(
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  installViewportWatcher()
   if (connection.isConnected) {
     await nextTick()
     initialiseTerminal()
@@ -524,7 +609,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
-  removeTouchGestures?.()
+  removeViewportWatcher()
   resizeObserver?.disconnect()
   term?.dispose()
   term = null
@@ -533,7 +618,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="terminal-page">
+  <div ref="terminalPage" class="terminal-page">
     <header class="terminal-bar">
       <button class="terminal-back" :title="settings.t('common.back')" @click="goHome">
         <ArrowLeft :size="18" />
@@ -562,6 +647,23 @@ onUnmounted(() => {
         </button>
       </div>
     </header>
+
+    <div v-if="connection.isConnected" class="terminal-toolbar" role="toolbar">
+      <button class="terminal-toolbar__key" @click="toolbarKey('escape')">Esc</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('tab')">Tab</button>
+      <button class="terminal-toolbar__key" :class="{ 'is-active': ctrlArmed }" @click="toolbarKey('ctrl')">Ctrl</button>
+      <button class="terminal-toolbar__key" :class="{ 'is-active': shiftArmed }" @click="toolbarKey('shift')">Shift</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('left')">←</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('up')">↑</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('down')">↓</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('right')">→</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('pipe')">|</button>
+      <button class="terminal-toolbar__key" @click="toolbarKey('tilde')">~</button>
+      <span class="terminal-toolbar__spacer" />
+      <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize - 1)">A−</button>
+      <span class="terminal-toolbar__size mono">{{ Math.round(fontSize) }}</span>
+      <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize + 1)">A+</button>
+    </div>
 
     <div v-if="connection.isConnected" class="terminal-body">
       <div class="terminal-window">
@@ -635,6 +737,68 @@ onUnmounted(() => {
   flex: none;
 }
 
+.terminal-toolbar {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 6px 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8, 13, 22, 0.94);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.terminal-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.terminal-toolbar__key {
+  flex: none;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  touch-action: manipulation;
+}
+
+.terminal-toolbar__key:active,
+.terminal-toolbar__key.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-faint);
+}
+
+.terminal-toolbar__spacer {
+  flex: 1;
+  min-width: 10px;
+}
+
+.terminal-toolbar__font {
+  min-width: 30px;
+  font-size: 12px;
+}
+
+.terminal-toolbar__size {
+  flex: none;
+  min-width: 20px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .terminal-toolbar {
+    display: flex;
+  }
+}
+
 .terminal-back {
   display: grid;
   place-items: center;
@@ -698,6 +862,7 @@ onUnmounted(() => {
   flex-direction: column;
   min-height: 0;
   padding: 0;
+  touch-action: pan-y;
 }
 
 .terminal-window {
@@ -710,6 +875,7 @@ onUnmounted(() => {
   border-radius: 0;
   background: #050810;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .terminal-host {
