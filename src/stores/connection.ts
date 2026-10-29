@@ -353,7 +353,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if (isConnected.value) await disconnect()
     status.value = 'connecting'
     transport.value = 'ble'
-    portLabel.value = `BLE 路 ${bleDevice.name}`
+    portLabel.value = `BLE · ${bleDevice.name}`
     lastError.value = ''
     lastBleDevice.value = bleDevice
     lastSerial.value = ''
@@ -372,7 +372,7 @@ export const useConnectionStore = defineStore('connection', () => {
         'Timed out while opening the Proxmark session over BLE',
       )
       if (!info.open || info.offline) throw new Error('The client could not start a hardware session over BLE.')
-      applySession(info, 'ble', `BLE 路 ${bleDevice.name}`)
+      applySession(info, 'ble', `BLE · ${bleDevice.name}`)
       toast.success(settings.t('toast.bleConnected'))
       void probeDevice()
       return info
