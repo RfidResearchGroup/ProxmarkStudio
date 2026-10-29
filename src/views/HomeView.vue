@@ -83,7 +83,7 @@ let clockTimer: number | null = null
 const capabilities = computed(() => platform.info.capabilities)
 
 function isPm3Name(name: string): boolean {
-  return /pm3|proxmark/i.test(name)
+  return /pm|proxmark/i.test(name)
 }
 
 function compareDevices(a: UnifiedDevice, b: UnifiedDevice): number {
