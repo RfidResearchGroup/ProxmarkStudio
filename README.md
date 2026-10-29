@@ -202,8 +202,8 @@ an r27+ installation.
 The generated Android project lives in
 [`src-tauri/gen/android`](src-tauri/gen/android) and is committed because the
 manifest carries the share `FileProvider` and the resource paths used by the
-app. It is pinned to `compileSdk = 35` / `targetSdk = 35` to match the installed
-SDK platform; bump both values (and install the corresponding platform) when
+app. It uses `compileSdk = 36` (required by the current AndroidX/plugin
+libraries) and `minSdk = 26` (required by `tauri-plugin-blec`). Bump these when
 you upgrade the Android toolchain.
 
 Android BLE runtime permissions are provided by `tauri-plugin-blec`. The share

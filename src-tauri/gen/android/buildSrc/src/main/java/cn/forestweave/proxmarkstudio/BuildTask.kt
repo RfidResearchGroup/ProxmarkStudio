@@ -23,7 +23,7 @@ abstract class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """C:\nvm4w\nodejs\node""";
+        val executable = """C:\nvm4w\nodejs\node.exe""";
         try {
             runTauriCli(executable)
         } catch (e: Exception) {
@@ -55,7 +55,10 @@ abstract class BuildTask : DefaultTask() {
         val rootDirRel = rootDirRel ?: throw GradleException("rootDirRel cannot be null")
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
-        val args = listOf("tauri", "android", "android-studio-script");
+        // Use the project-local CLI instead of assuming a global `tauri` module.
+        val projectRoot = File(projectDir, rootDirRel)
+        val cli = File(projectRoot, "../node_modules/@tauri-apps/cli/tauri.js").canonicalPath
+        val args = listOf(cli, "android", "android-studio-script");
 
         execOperations.exec {
             workingDir(File(projectDir, rootDirRel))
