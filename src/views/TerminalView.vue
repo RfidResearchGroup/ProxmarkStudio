@@ -902,7 +902,7 @@ onUnmounted(() => {
 .terminal-host {
   flex: 1;
   min-height: 0;
-  padding: 13px 6px 10px 16px;
+  padding: 0;
   background:
     radial-gradient(900px 500px at 100% 0%, var(--accent-faint), transparent 60%),
     #050810;
@@ -910,7 +910,7 @@ onUnmounted(() => {
 
 .terminal-host :deep(.xterm) {
   height: 100%;
-  padding: 0;
+  padding: 13px 6px 10px 16px;
 }
 
 .terminal-host :deep(.xterm-viewport) {
@@ -1078,6 +1078,10 @@ onUnmounted(() => {
   }
 
   .terminal-host {
+    padding: 0;
+  }
+
+  .terminal-host :deep(.xterm) {
     padding: 9px 2px 18px 10px;
   }
 
