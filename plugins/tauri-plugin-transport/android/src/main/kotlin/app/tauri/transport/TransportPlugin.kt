@@ -215,10 +215,21 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
         usbOut = output
         usbReader = Thread {
             val buffer = ByteArray(4096)
+            var misses = 0
             while (!closed) {
                 try {
                     val read = connection.bulkTransfer(input, buffer, buffer.size, 1000)
-                    if (read > 0) emitData(buffer, read)
+                    if (read > 0) {
+                        misses = 0
+                        emitData(buffer, read)
+                    } else {
+                        misses++
+                        if (misses >= 3 &&
+                            usbManager.deviceList.values.none { it.deviceName == device.deviceName }
+                        ) {
+                            break
+                        }
+                    }
                 } catch (error: Exception) {
                     break
                 }
