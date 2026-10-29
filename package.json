@@ -5,6 +5,14 @@
   "type": "module",
   "description": "A cross-platform Proxmark3 workbench built with Tauri 2 and Vue 3",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RfidResearchGroup/ProxmarkStudio.git"
+  },
+  "homepage": "https://github.com/RfidResearchGroup/ProxmarkStudio#readme",
+  "bugs": {
+    "url": "https://github.com/RfidResearchGroup/ProxmarkStudio/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

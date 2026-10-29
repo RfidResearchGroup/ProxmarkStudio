@@ -32,6 +32,7 @@ import { useConnectionStore } from '@/stores/connection'
 import { useToastStore } from '@/stores/toast'
 import { getDiagnostics, openExternal, revealPath } from '@/services/backend'
 import { copyText, errorMessage, formatBytes, formatDate, shortPath } from '@/utils/format'
+import { APP_LICENSE, APP_REPOSITORY, PLUGIN_REPOSITORY, PROXMARK3_REPOSITORY } from '@/config/links'
 
 const settings = useSettingsStore()
 const platform = usePlatformStore()
@@ -150,17 +151,20 @@ function confirmReset() {
 }
 
 function openReleases() {
-  const url =
-    resources.release?.htmlUrl ?? 'https://github.com/xianglin1998/tauri-plugin-proxmark3/releases'
+  const url = resources.release?.htmlUrl ?? `${PLUGIN_REPOSITORY}/releases`
   void openExternal(url)
 }
 
 function openSource() {
-  void openExternal('https://github.com/xianglin1998/tauri-plugin-proxmark3')
+  void openExternal(APP_REPOSITORY)
 }
 
 function openClientSource() {
-  void openExternal('https://github.com/RfidResearchGroup/proxmark3')
+  void openExternal(PROXMARK3_REPOSITORY)
+}
+
+function openAppLicense() {
+  void openExternal(APP_LICENSE)
 }
 
 onMounted(async () => {
@@ -514,7 +518,7 @@ onMounted(async () => {
           </div>
           <div class="panel-body">
             <p>{{ settings.t('settings.gplBody') }}</p>
-            <button class="license-link" @click="openClientSource">
+            <button class="license-link" @click="openAppLicense">
               {{ settings.t('settings.licenses') }}
               <ArrowUpRight :size="13" />
             </button>

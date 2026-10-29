@@ -19,6 +19,7 @@ import { useConnectionStore } from '@/stores/connection'
 import { usePlatformStore } from '@/stores/platform'
 import { openExternal } from '@/services/backend'
 import type { ThemeName } from '@/stores/settings'
+import { APP_REPOSITORY } from '@/config/links'
 
 const route = useRoute()
 const settings = useSettingsStore()
@@ -61,7 +62,7 @@ function cycleLocale() {
 }
 
 function openRepository() {
-  void openExternal('https://github.com/xianglin1998/tauri-plugin-proxmark3')
+  void openExternal(APP_REPOSITORY)
 }
 </script>
 

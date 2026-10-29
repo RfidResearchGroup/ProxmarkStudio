@@ -15,7 +15,8 @@ use crate::state::AppState;
 
 const API_RELEASES: &str =
     "https://api.github.com/repos/xianglin1998/tauri-plugin-proxmark3/releases?per_page=20";
-const USER_AGENT_VALUE: &str = "Proxmark-Studio/0.1 (+https://github.com/xianglin1998/tauri-plugin-proxmark3)";
+const USER_AGENT_VALUE: &str =
+    "Proxmark-Studio/0.1 (+https://github.com/RfidResearchGroup/ProxmarkStudio)";
 const PINNED_COMMIT: &str = env!("PM3_CLIENT_COMMIT");
 const MARKER_FILE: &str = ".pm3-resources.json";
 const RESOURCE_DIRS: [&str; 6] = [

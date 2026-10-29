@@ -36,6 +36,7 @@ import {
   type BleUartConfig,
 } from '@/services/ble'
 import { errorMessage, formatDuration } from '@/utils/format'
+import { APP_DOCUMENTATION } from '@/config/links'
 
 type Method = 'usb' | 'ble' | 'spp'
 
@@ -292,7 +293,7 @@ function signalBars(rssi: number) {
 }
 
 function openDocs() {
-  void openExternal('https://github.com/RfidResearchGroup/proxmark3/wiki')
+  void openExternal(APP_DOCUMENTATION)
 }
 
 watch(

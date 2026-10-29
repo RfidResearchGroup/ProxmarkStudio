@@ -3,6 +3,9 @@
 A cross-platform workbench for **Proxmark3 and Proxmark5** hardware, built with
 [Tauri 2](https://v2.tauri.app/start/), Vue 3, Pinia and TypeScript.
 
+**Source:** <https://github.com/RfidResearchGroup/ProxmarkStudio>  
+**Issues:** <https://github.com/RfidResearchGroup/ProxmarkStudio/issues>
+
 Proxmark Studio wraps the embedded Proxmark client from
 [`tauri-plugin-proxmark3`](https://github.com/xianglin1998/tauri-plugin-proxmark3)
 in a focused desktop/mobile interface: connect over USB serial, Bluetooth LE or
