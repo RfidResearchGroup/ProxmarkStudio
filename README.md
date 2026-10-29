@@ -231,8 +231,8 @@ support.
 | Download cache | `<app-data>/cache` |
 | App preferences | Local storage (`pm3-studio.*` keys) |
 
-`<app-data>` is `%APPDATA%\cn.rfidresearchgroup.proxmarkstudio` on Windows,
-`~/Library/Application Support/cn.rfidresearchgroup.proxmarkstudio` on macOS,
+`<app-data>` is `%APPDATA%\cn.forestweave.proxmarkstudio` on Windows,
+`~/Library/Application Support/cn.forestweave.proxmarkstudio` on macOS,
 and the XDG data directory on Linux.
 
 ## Notes and limitations

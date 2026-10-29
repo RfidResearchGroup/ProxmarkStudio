@@ -16,10 +16,10 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 35
-    namespace = "cn.rfidresearchgroup.proxmarkstudio"
+    namespace = "cn.forestweave.proxmarkstudio"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "cn.rfidresearchgroup.proxmarkstudio"
+        applicationId = "cn.forestweave.proxmarkstudio"
         minSdk = 24
         targetSdk = 35
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -81,4 +81,5 @@ dependencies {
 }
 
 apply(from = file("tauri.build.gradle.kts"))
+
 
