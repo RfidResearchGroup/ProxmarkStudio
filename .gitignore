@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/.proxmark3/
+src-tauri/cache/
+_temp/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example

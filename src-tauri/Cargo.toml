@@ -1,0 +1,37 @@
+[package]
+name = "proxmark-studio"
+version = "0.1.0"
+description = "A cross-platform Proxmark3 workbench"
+authors = ["ForestWeave"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/xianglin1998/tauri-plugin-proxmark3"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "proxmark_studio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-share = "2.0.5"
+tauri-plugin-blec = "0.18.0"
+tauri-plugin-proxmark3 = { path = "../_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+thiserror = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+serialport = "4"
+
+[features]
+default = []

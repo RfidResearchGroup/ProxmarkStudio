@@ -1,0 +1,360 @@
+import { computed, ref } from 'vue'
+import { defineStore } from 'pinia'
+import { useSettingsStore } from './settings'
+import { useToastStore } from './toast'
+import * as pm3 from '@/services/pm3'
+import type { SessionInfo } from '@/services/pm3'
+import {
+  listSerialPorts,
+  type SerialPortInfo,
+} from '@/services/backend'
+import {
+  openBleBridge,
+  type BleBridge,
+  type BleDeviceInfo,
+  type BleUartConfig,
+} from '@/services/ble'
+import { parseDeviceInfo, hasDeviceDetails as deviceHasDetails, type DeviceInfo } from '@/services/deviceInfo'
+import { errorMessage } from '@/utils/format'
+import type { TranslationKey } from '@/i18n/en'
+
+export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error'
+export type Transport = 'usb' | 'ble' | 'spp' | 'tcp'
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
+export const useConnectionStore = defineStore('connection', () => {
+  const settings = useSettingsStore()
+  const toast = useToastStore()
+
+  const status = ref<ConnectionStatus>('idle')
+  const transport = ref<Transport | null>(null)
+  const portLabel = ref('')
+  const session = ref<SessionInfo | null>(null)
+  const device = ref<DeviceInfo | null>(null)
+  const clientVersion = ref('')
+  const connectedAt = ref<number | null>(null)
+  const lastError = ref('')
+  const probing = ref(false)
+  const serialPorts = ref<SerialPortInfo[]>([])
+  const loadingPorts = ref(false)
+  const bridgePort = ref<number | null>(null)
+  const lastBleDevice = ref<BleDeviceInfo | null>(null)
+  const lastSerial = ref('')
+  const initialised = ref(false)
+
+  let bridge: BleBridge | null = null
+  let bleDisconnectInFlight = false
+
+  const isConnected = computed(
+    () => status.value === 'connected' && Boolean(session.value?.open) && !session.value?.offline,
+  )
+  const isBusy = computed(() => status.value === 'connecting' || probing.value)
+  const hasDeviceDetails = computed(() => deviceHasDetails(device.value))
+  const usbPorts = computed(() => serialPorts.value.filter((port) => port.kind !== 'bluetooth'))
+  const sppPorts = computed(() => serialPorts.value.filter((port) => port.kind === 'bluetooth'))
+  const transportKey = computed<TranslationKey>(() => {
+    switch (transport.value) {
+      case 'usb':
+        return 'home.transportUsb'
+      case 'ble':
+        return 'home.transportBle'
+      case 'spp':
+        return 'home.transportSpp'
+      case 'tcp':
+        return 'home.transportTcp'
+      default:
+        return 'home.transportOffline'
+    }
+  })
+
+  function applySession(info: SessionInfo, chosenTransport: Transport, label: string) {
+    session.value = info
+    transport.value = chosenTransport
+    portLabel.value = label || info.port
+    status.value = 'connected'
+    connectedAt.value = Date.now()
+    lastError.value = ''
+  }
+
+  function resetSession() {
+    session.value = null
+    device.value = null
+    status.value = 'idle'
+    transport.value = null
+    portLabel.value = ''
+    connectedAt.value = null
+    bridgePort.value = null
+  }
+
+  async function init() {
+    if (initialised.value) return
+    initialised.value = true
+    try {
+      clientVersion.value = await pm3.version()
+    } catch {
+      /* the plugin may not be available in a plain browser preview */
+    }
+    try {
+      const info = await pm3.status()
+      if (info.open && !info.offline) {
+        applySession(info, info.port.startsWith('tcp:127.0.0.1') ? 'ble' : 'usb', info.port)
+        void probeDevice()
+      }
+    } catch {
+      /* no session yet */
+    }
+  }
+
+  async function refreshSession() {
+    try {
+      const info = await pm3.status()
+      if (info.open && !info.offline && status.value === 'connected') {
+        session.value = info
+      }
+      return info
+    } catch {
+      return null
+    }
+  }
+
+  async function refreshPorts() {
+    loadingPorts.value = true
+    try {
+      serialPorts.value = await listSerialPorts()
+    } catch (error) {
+      serialPorts.value = []
+      lastError.value = errorMessage(error)
+    } finally {
+      loadingPorts.value = false
+    }
+  }
+
+  async function probeDevice() {
+    if (!isConnected.value) return
+    probing.value = true
+    try {
+      const [versionResult, statusResult] = await Promise.allSettled([
+        withTimeout(pm3.execute('hw version'), 20000, 'hw version timed out'),
+        withTimeout(pm3.execute('hw status'), 20000, 'hw status timed out'),
+      ])
+      const versionOut = versionResult.status === 'fulfilled' ? versionResult.value.output : ''
+      const statusOut = statusResult.status === 'fulfilled' ? statusResult.value.output : ''
+      device.value = parseDeviceInfo(versionOut, statusOut)
+      if (!versionOut && !statusOut) {
+        const reason =
+          versionResult.status === 'rejected' ? errorMessage(versionResult.reason) : 'No identification output'
+        lastError.value = reason
+      }
+    } finally {
+      probing.value = false
+    }
+  }
+
+  async function openSession(port: string, chosenTransport: Transport, label?: string) {
+    if (isConnected.value) await disconnect()
+    status.value = 'connecting'
+    lastError.value = ''
+    try {
+      const info = await withTimeout(pm3.connect(port), 45000, 'Connection timed out')
+      if (!info.open || info.offline) {
+        throw new Error('The client opened an offline session instead of connecting to the device.')
+      }
+      applySession(info, chosenTransport, label ?? port)
+      void probeDevice()
+      return info
+    } catch (error) {
+      status.value = 'error'
+      lastError.value = errorMessage(error)
+      session.value = null
+      transport.value = chosenTransport
+      portLabel.value = label ?? port
+      try {
+        await pm3.disconnect()
+      } catch {
+        /* ignore cleanup failures */
+      }
+      throw error
+    }
+  }
+
+  async function connectUsb(port: string) {
+    lastSerial.value = port
+    lastBleDevice.value = null
+    try {
+      const info = await openSession(port, 'usb')
+      toast.success(settings.t('home.connectedToast', { port }))
+      return info
+    } catch (error) {
+      toast.error(settings.t('home.connectionFailed'), errorMessage(error))
+      throw error
+    }
+  }
+
+  async function connectSpp(port: string) {
+    lastSerial.value = port
+    lastBleDevice.value = null
+    try {
+      const info = await openSession(port, 'spp')
+      toast.success(settings.t('home.connectedToast', { port }))
+      return info
+    } catch (error) {
+      toast.error(settings.t('home.connectionFailed'), errorMessage(error))
+      throw error
+    }
+  }
+
+  async function connectSppMac(mac: string) {
+    lastBleDevice.value = null
+    try {
+      const info = await openSession(`bt:${mac}`, 'spp', `SPP · ${mac}`)
+      toast.success(settings.t('home.connectedToast', { port: mac }))
+      return info
+    } catch (error) {
+      toast.error(settings.t('home.connectionFailed'), errorMessage(error))
+      throw error
+    }
+  }
+
+  async function connectBle(bleDevice: BleDeviceInfo, config?: BleUartConfig) {
+    if (isConnected.value) await disconnect()
+    status.value = 'connecting'
+    transport.value = 'ble'
+    portLabel.value = `BLE · ${bleDevice.name}`
+    lastError.value = ''
+    lastBleDevice.value = bleDevice
+    lastSerial.value = ''
+
+    try {
+      bridge = await openBleBridge(bleDevice, {
+        config,
+        onDisconnect: () => {
+          void handleBleDisconnect()
+        },
+      })
+      bridgePort.value = bridge.port
+      const info = await withTimeout(
+        pm3.connect(`tcp:127.0.0.1:${bridge.port}`),
+        45000,
+        'Timed out while opening the Proxmark session over BLE',
+      )
+      if (!info.open || info.offline) throw new Error('The client could not start a hardware session over BLE.')
+      applySession(info, 'ble', `BLE · ${bleDevice.name}`)
+      toast.success(settings.t('toast.bleConnected'))
+      void probeDevice()
+      return info
+    } catch (error) {
+      lastError.value = errorMessage(error)
+      status.value = 'error'
+      await bridge?.close().catch(() => {})
+      bridge = null
+      bridgePort.value = null
+      try {
+        await pm3.disconnect()
+      } catch {
+        /* ignore cleanup failures */
+      }
+      toast.error(settings.t('home.connectionFailed'), lastError.value)
+      throw error
+    }
+  }
+
+  async function handleBleDisconnect() {
+    if (transport.value !== 'ble' || bleDisconnectInFlight) return
+    bleDisconnectInFlight = true
+    try {
+      lastError.value = 'Bluetooth LE link lost'
+      status.value = 'error'
+      session.value = null
+      bridgePort.value = null
+      toast.error(settings.t('toast.bleDisconnected'))
+      try {
+        await pm3.disconnect()
+      } catch {
+        /* ignore */
+      }
+      await bridge?.close().catch(() => {})
+      bridge = null
+    } finally {
+      bleDisconnectInFlight = false
+    }
+  }
+
+  async function disconnect() {
+    const wasConnected = Boolean(session.value?.open)
+    const bleBridge = bridge
+    bridge = null
+    try {
+      if (wasConnected) await pm3.disconnect()
+    } catch (error) {
+      lastError.value = errorMessage(error)
+    } finally {
+      if (bleBridge) await bleBridge.close().catch(() => {})
+      resetSession()
+      if (wasConnected) toast.info(settings.t('home.disconnectedToast'))
+    }
+  }
+
+  async function reconnect() {
+    if (lastBleDevice.value) return connectBle(lastBleDevice.value)
+    if (lastSerial.value) {
+      return transport.value === 'spp' ? connectSpp(lastSerial.value) : connectUsb(lastSerial.value)
+    }
+    return null
+  }
+
+  function clearError() {
+    if (status.value === 'error') {
+      status.value = session.value?.open ? 'connected' : 'idle'
+      lastError.value = ''
+    }
+  }
+
+  return {
+    status,
+    transport,
+    portLabel,
+    session,
+    device,
+    clientVersion,
+    connectedAt,
+    lastError,
+    probing,
+    serialPorts,
+    loadingPorts,
+    bridgePort,
+    lastBleDevice,
+    lastSerial,
+    isConnected,
+    isBusy,
+    hasDeviceDetails,
+    usbPorts,
+    sppPorts,
+    transportKey,
+    init,
+    refreshSession,
+    refreshPorts,
+    probeDevice,
+    connectUsb,
+    connectSpp,
+    connectSppMac,
+    connectBle,
+    disconnect,
+    reconnect,
+    clearError,
+  }
+})

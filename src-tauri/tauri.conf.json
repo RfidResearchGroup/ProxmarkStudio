@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Proxmark Studio",
+  "version": "0.1.0",
+  "identifier": "com.forestweave.proxmarkstudio",
+  "build": {
+    "beforeDevCommand": "node scripts/frontend.mjs dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node scripts/frontend.mjs build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Proxmark Studio",
+        "label": "main",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 900,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "theme": "Dark",
+        "backgroundColor": "#050810",
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Proxmark3 workbench",
+    "longDescription": "Connect to a Proxmark3 over USB serial, Bluetooth LE or Bluetooth SPP. Inspect the device, manage its working files, install client resources and run commands in an integrated terminal.",
+    "copyright": "GPL-3.0-or-later. Proxmark3 client © Proxmark3 contributors.",
+    "android": {
+      "minSdkVersion": 24
+    },
+    "iOS": {
+      "minimumSystemVersion": "13.0",
+      "infoPlist": "Info.plist"
+    }
+  },
+  "plugins": {}
+}

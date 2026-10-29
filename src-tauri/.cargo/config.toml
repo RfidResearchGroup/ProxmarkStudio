@@ -1,0 +1,17 @@
+# Windows GNU target configuration. The embedded Proxmark3 client only builds
+# with the GNU ABI, so the Windows build always targets x86_64-pc-windows-gnu.
+# Set PM3X_MINGW_BIN (see README) if MSYS2 lives somewhere else.
+
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[net]
+git-fetch-with-cli = true
+
+[target.x86_64-pc-windows-gnu]
+linker = "C:/UserProgram/msys2/ucrt64/bin/gcc.exe"
+ar = "C:/UserProgram/msys2/ucrt64/bin/ar.exe"
+rustflags = ["-C", "target-feature=+crt-static"]
