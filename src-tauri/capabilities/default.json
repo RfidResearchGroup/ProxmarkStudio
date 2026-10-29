@@ -12,6 +12,7 @@
     "core:window:allow-start-resize-dragging",
     "core:window:allow-is-maximized",
     "proxmark3:default",
+    "transport:default",
     "blec:default",
     "share:default",
     "opener:default"

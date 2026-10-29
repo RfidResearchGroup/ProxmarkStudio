@@ -3,13 +3,14 @@ import { defineStore } from 'pinia'
 import { en, type TranslationKey } from '@/i18n/en'
 import { zh } from '@/i18n/zh'
 
-export type ThemeName = 'midnight' | 'carbon' | 'nebula'
+export type ThemeName = 'abyss' | 'midnight' | 'carbon' | 'nebula'
 export type LocalePreference = 'system' | 'en' | 'zh'
 export type SupportedLocale = 'en' | 'zh'
 
 const dictionaries: Record<SupportedLocale, Record<TranslationKey, string>> = { en, zh }
 
-const THEME_KEY = 'pm3-studio.theme'
+const THEME_KEY = 'pm3-studio.theme.v2'
+const LEGACY_THEME_KEY = 'pm3-studio.theme'
 const LOCALE_KEY = 'pm3-studio.locale'
 const CONN_KEY = 'pm3-studio.connection'
 const BLE_KEY = 'pm3-studio.ble'
@@ -55,7 +56,7 @@ export const DEFAULT_BLE_TX = PM5_BLE_CHAR
 export const useSettingsStore = defineStore('settings', () => {
   const systemLocale = ref<SupportedLocale>(detectSystemLocale())
   const localePreference = ref<LocalePreference>('system')
-  const theme = ref<ThemeName>('midnight')
+  const theme = ref<ThemeName>('abyss')
   const preferredTransport = ref<'usb' | 'ble' | 'spp'>('usb')
   const autoReconnect = ref(true)
   const bleService = ref(DEFAULT_BLE_SERVICE)
@@ -69,8 +70,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function hydrate() {
     const storedTheme = readStorage(THEME_KEY) as ThemeName | null
-    if (storedTheme === 'midnight' || storedTheme === 'carbon' || storedTheme === 'nebula') {
+    if (storedTheme === 'abyss' || storedTheme === 'midnight' || storedTheme === 'carbon' || storedTheme === 'nebula') {
       theme.value = storedTheme
+    } else {
+      // Preserve an explicit legacy choice, but migrate the old default
+      // (midnight) to the new blue default.
+      const legacy = readStorage(LEGACY_THEME_KEY)
+      theme.value = legacy === 'carbon' || legacy === 'nebula' ? legacy : 'abyss'
     }
     const storedLocale = readStorage(LOCALE_KEY) as LocalePreference | null
     if (storedLocale === 'system' || storedLocale === 'en' || storedLocale === 'zh') {
@@ -108,6 +114,7 @@ export const useSettingsStore = defineStore('settings', () => {
     document.documentElement.dataset.theme = theme.value
     document.documentElement.classList.add('dark')
     const colors: Record<ThemeName, string> = {
+      abyss: '#050b16',
       midnight: '#050810',
       carbon: '#0b0a09',
       nebula: '#080714',
@@ -165,7 +172,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function reset() {
-    setTheme('midnight')
+    setTheme('abyss')
     setLocale('system')
     setPreferredTransport('usb')
     setAutoReconnect(true)

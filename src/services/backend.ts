@@ -15,6 +15,7 @@ import {
 } from './mockBackend'
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+export const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
 export interface PlatformCapabilities {
   usbSerial: boolean
@@ -166,6 +167,36 @@ export async function revealPath(path: string): Promise<void> {
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   if (!isTauri) return mockListSerialPorts()
+  if (isAndroid) {
+    const [usbResult, sppResult] = await Promise.allSettled([
+      invoke<{ devices: Array<{ path: string; name: string; manufacturer: string; vid: number; pid: number }> }>(
+        'plugin:transport|list_usb',
+      ),
+      invoke<{ devices: Array<{ address: string; name: string }> }>('plugin:transport|list_spp'),
+    ])
+    const usb = usbResult.status === 'fulfilled' ? usbResult.value : { devices: [] }
+    const spp = sppResult.status === 'fulfilled' ? sppResult.value : { devices: [] }
+    return [
+      ...usb.devices.map((device) => ({
+        path: device.path,
+        kind: 'usb' as const,
+        manufacturer: device.manufacturer || null,
+        product: device.name || null,
+        serialNumber: null,
+        vid: device.vid ?? null,
+        pid: device.pid ?? null,
+      })),
+      ...spp.devices.map((device) => ({
+        path: device.address,
+        kind: 'bluetooth' as const,
+        manufacturer: null,
+        product: device.name || null,
+        serialNumber: null,
+        vid: null,
+        pid: null,
+      })),
+    ]
+  }
   return invoke<SerialPortInfo[]>('list_serial_ports')
 }
 

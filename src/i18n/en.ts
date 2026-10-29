@@ -253,6 +253,8 @@ export const en = {
   'settings.appearance': 'Appearance',
   'settings.appearanceHint': 'The interface is dark-first. Themes swap the palette without changing the layout.',
   'settings.theme': 'Theme',
+  'settings.themeAbyss': 'Abyss',
+  'settings.themeAbyssDesc': 'Deep ocean blue with an electric signal.',
   'settings.themeMidnight': 'Midnight',
   'settings.themeMidnightDesc': 'Deep navy with a mint signal accent.',
   'settings.themeCarbon': 'Carbon',

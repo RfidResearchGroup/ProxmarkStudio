@@ -20,7 +20,7 @@ import BrandMark from '@/components/BrandMark.vue'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
-import { executeStream } from '@/services/pm3'
+import { executeStream, sendInput } from '@/services/pm3'
 import { copyText, errorMessage, formatDuration } from '@/utils/format'
 
 const router = useRouter()
@@ -42,8 +42,52 @@ let fitAddon: FitAddon | null = null
 let resizeObserver: ResizeObserver | null = null
 let clockTimer: number | null = null
 let lineBuffer = ''
+let runningBuffer = ''
+let colorPending = ''
 let history: string[] = []
 let historyIndex = -1
+
+const OUTPUT_COLORS: Record<string, string> = {
+  '+': '\x1b[38;2;76;240;200m',
+  '=': '\x1b[38;2;106;168;255m',
+  '!': '\x1b[38;2;255;107;129m',
+  '#': '\x1b[38;2;125;155;195m',
+  '*': '\x1b[38;2;255;196;107m',
+  '-': '\x1b[38;2;255;196;107m',
+  '?': '\x1b[38;2;177;140;255m',
+}
+
+// The client disables its own ANSI colours when stdout is redirected. Restore
+// the familiar pm3 severity colours from the leading [x] marker instead.
+function colorizeLine(line: string): string {
+  if (line.includes('\x1b[')) return line
+  const match = line.match(/^(\s*)\[([+=\!#*?-])\](.*)$/)
+  if (!match) return line
+  const color = OUTPUT_COLORS[match[2]]
+  if (!color) return line
+  return `${match[1]}${color}[${match[2]}]${match[3]}\x1b[0m`
+}
+
+function writeOutput(chunk: string) {
+  if (!term) return
+  colorPending += chunk
+  for (;;) {
+    const index = colorPending.search(/[\r\n]/)
+    if (index < 0) break
+    const line = colorPending.slice(0, index)
+    const isCrLf = colorPending[index] === '\r' && colorPending[index + 1] === '\n'
+    const separator = colorPending[index]
+    colorPending = colorPending.slice(index + (isCrLf ? 2 : 1))
+    term.write(colorizeLine(line))
+    term.write(isCrLf || separator === '\n' ? '\r\n' : '\r')
+  }
+}
+
+function flushOutput() {
+  if (!term || !colorPending) return
+  term.write(colorizeLine(colorPending))
+  colorPending = ''
+}
 
 const prompt = '\x1b[38;2;76;240;200m pm3 \x1b[0m\x1b[38;2;86;102;127m›\x1b[0m '
 
@@ -186,8 +230,43 @@ function replaceCurrentLine(next: string) {
 }
 
 async function onTerminalData(data: string) {
-  if (!term || !connection.isConnected) return
-  if (running.value) return
+  if (!term) return
+
+  // Keep accepting input while a command is running. Some client commands
+  // (tune/sniff/simulation loops) only exit when they receive Enter, and a few
+  // prompts read a short answer from stdin.
+  if (running.value) {
+    if (!connection.isConnected) return
+    if (data === '\r') {
+      const payload = `${runningBuffer}\n`
+      runningBuffer = ''
+      term.write('\r\n')
+      void sendInput(payload).catch((error) => {
+        toast.error(settings.t('terminal.commandError'), errorMessage(error))
+      })
+      return
+    }
+    if (data === '\u007F') {
+      if (!runningBuffer.length) return
+      runningBuffer = runningBuffer.slice(0, -1)
+      term.write('\b \b')
+      return
+    }
+    if (data === '\u0003') {
+      runningBuffer = ''
+      term.write('^C')
+      void sendInput('\n').catch(() => {})
+      return
+    }
+    if (data.startsWith('\u001b')) return
+    const printable = [...data].filter((char) => char >= ' ' && char !== '\u007f').join('')
+    if (!printable) return
+    runningBuffer += printable
+    term.write(printable)
+    return
+  }
+
+  if (!connection.isConnected) return
 
   if (data === '\r') {
     const command = lineBuffer.trim()
@@ -274,16 +353,23 @@ async function runCommand(command: string) {
   historyCount.value = history.length
   historyIndex = -1
   running.value = true
+  runningBuffer = ''
+  colorPending = ''
   let endedWithNewline = false
 
   try {
     await executeStream(normalized, (chunk) => {
-      if (!term) return
-      endedWithNewline = /(?:\r?\n)$/.test(chunk)
-      term.write(chunk)
+      endedWithNewline = chunk.endsWith('\n')
+      writeOutput(chunk)
     })
-    if (!endedWithNewline) term.write('\r\n')
+    if (colorPending) {
+      flushOutput()
+      term.write('\r\n')
+    } else if (!endedWithNewline) {
+      term.write('\r\n')
+    }
   } catch (error) {
+    flushOutput()
     if (!endedWithNewline) term.write('\r\n')
     term.writeln(`\x1b[31m[!] ${settings.t('terminal.commandError')}: ${errorMessage(error)}\x1b[0m`)
     if (/not open|no proxmark|session/i.test(errorMessage(error))) {
@@ -291,6 +377,8 @@ async function runCommand(command: string) {
     }
   } finally {
     running.value = false
+    runningBuffer = ''
+    colorPending = ''
     if (term && connection.isConnected) writePrompt()
   }
 }

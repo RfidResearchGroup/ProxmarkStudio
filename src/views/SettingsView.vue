@@ -51,6 +51,7 @@ const bleDraft = reactive({
 const themes = computed<
   Array<{ id: ThemeName; name: string; description: string }>
 >(() => [
+  { id: 'abyss', name: settings.t('settings.themeAbyss'), description: settings.t('settings.themeAbyssDesc') },
   { id: 'midnight', name: settings.t('settings.themeMidnight'), description: settings.t('settings.themeMidnightDesc') },
   { id: 'carbon', name: settings.t('settings.themeCarbon'), description: settings.t('settings.themeCarbonDesc') },
   { id: 'nebula', name: settings.t('settings.themeNebula'), description: settings.t('settings.themeNebulaDesc') },
@@ -581,7 +582,7 @@ onMounted(async () => {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 9px;
 }
 
@@ -620,6 +621,9 @@ onMounted(async () => {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.theme-preview--abyss {
+  background: #071323;
+}
 .theme-preview--midnight {
   background: #070c16;
 }
@@ -635,6 +639,9 @@ onMounted(async () => {
   border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.theme-preview--abyss .theme-preview__sidebar {
+  background: #0d2038;
+}
 .theme-preview--midnight .theme-preview__sidebar {
   background: #0d1624;
 }
@@ -680,6 +687,10 @@ onMounted(async () => {
   border-radius: 50%;
 }
 
+.theme-preview--abyss .theme-preview__accent {
+  background: #4d9fff;
+  box-shadow: 0 0 7px #4d9fff;
+}
 .theme-preview--midnight .theme-preview__accent {
   background: #4cf0c8;
   box-shadow: 0 0 7px #4cf0c8;

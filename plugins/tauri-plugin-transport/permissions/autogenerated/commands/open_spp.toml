@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-open-spp"
+description = "Enables the open_spp command without any pre-configured scope."
+commands.allow = ["open_spp"]
+
+[[permission]]
+identifier = "deny-open-spp"
+description = "Denies the open_spp command without any pre-configured scope."
+commands.deny = ["open_spp"]

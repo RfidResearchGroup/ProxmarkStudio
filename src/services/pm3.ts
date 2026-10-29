@@ -207,6 +207,12 @@ export async function status(): Promise<SessionInfo> {
   return invoke<SessionInfo>('plugin:proxmark3|status')
 }
 
+/** Sends bytes to the client's stdin while a streaming command is running. */
+export async function sendInput(data: string): Promise<void> {
+  if (!isTauri) return
+  await invoke('plugin:proxmark3|input', { data })
+}
+
 export async function version(): Promise<string> {
   if (!isTauri) return MOCK_CLIENT_VERSION
   return invoke<string>('plugin:proxmark3|version')

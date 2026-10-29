@@ -29,6 +29,7 @@ import { usePlatformStore } from '@/stores/platform'
 import { useToastStore } from '@/stores/toast'
 import { openExternal } from '@/services/backend'
 import {
+  ensureBluetoothPermissions,
   getBluetoothState,
   scanForDevices,
   stopScanning,
@@ -190,6 +191,11 @@ function selectMethod(next: Method) {
   if (method.value === next) return
   method.value = next
   settings.setPreferredTransport(next)
+  if (next === 'spp') {
+    // SPP needs BLUETOOTH_CONNECT on Android 12+; the BLE plugin exposes the
+    // same runtime permission request used for scanning.
+    void ensureBluetoothPermissions().then(() => connection.refreshPorts())
+  }
 }
 
 function initialiseSelections() {

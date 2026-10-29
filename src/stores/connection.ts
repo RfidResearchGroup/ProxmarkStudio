@@ -6,8 +6,10 @@ import * as pm3 from '@/services/pm3'
 import type { SessionInfo } from '@/services/pm3'
 import {
   listSerialPorts,
+  isAndroid,
   type SerialPortInfo,
 } from '@/services/backend'
+import { openAndroidTransport, type AndroidTransport } from '@/services/androidTransport'
 import {
   openBleBridge,
   type BleBridge,
@@ -58,6 +60,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const initialised = ref(false)
 
   let bridge: BleBridge | null = null
+  let androidTransport: AndroidTransport | null = null
   let bleDisconnectInFlight = false
   let deviceWatchTimer: number | null = null
   let deviceCheckBusy = false
@@ -124,6 +127,10 @@ export const useConnectionStore = defineStore('connection', () => {
     device.value = null
     connectedAt.value = null
     toast.error(settings.t('home.deviceLostToast'), settings.t('home.deviceLostBody'))
+
+    const nativeTransport = androidTransport
+    androidTransport = null
+    if (nativeTransport) await nativeTransport.close().catch(() => {})
 
     // The port is gone, so closing the client session may block on the dead
     // handle.  Do not make the UI wait for it.
@@ -279,10 +286,22 @@ export const useConnectionStore = defineStore('connection', () => {
     lastSerial.value = port
     lastBleDevice.value = null
     try {
+      if (isAndroid) {
+        if (isConnected.value) await disconnect()
+        androidTransport = await openAndroidTransport('usb', port, () => { void handleDeviceLost() })
+        const info = await openSession(`tcp:127.0.0.1:${androidTransport.port}`, 'usb', port)
+        toast.success(settings.t('home.connectedToast', { port }))
+        return info
+      }
       const info = await openSession(port, 'usb')
       toast.success(settings.t('home.connectedToast', { port }))
       return info
     } catch (error) {
+      if (androidTransport) {
+        const transport = androidTransport
+        androidTransport = null
+        await transport.close().catch(() => {})
+      }
       toast.error(settings.t('home.connectionFailed'), errorMessage(error))
       throw error
     }
@@ -292,10 +311,22 @@ export const useConnectionStore = defineStore('connection', () => {
     lastSerial.value = port
     lastBleDevice.value = null
     try {
+      if (isAndroid) {
+        if (isConnected.value) await disconnect()
+        androidTransport = await openAndroidTransport('spp', port, () => { void handleDeviceLost() })
+        const info = await openSession(`tcp:127.0.0.1:${androidTransport.port}`, 'spp', port)
+        toast.success(settings.t('home.connectedToast', { port }))
+        return info
+      }
       const info = await openSession(port, 'spp')
       toast.success(settings.t('home.connectedToast', { port }))
       return info
     } catch (error) {
+      if (androidTransport) {
+        const transport = androidTransport
+        androidTransport = null
+        await transport.close().catch(() => {})
+      }
       toast.error(settings.t('home.connectionFailed'), errorMessage(error))
       throw error
     }
@@ -305,7 +336,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if (isConnected.value) await disconnect()
     status.value = 'connecting'
     transport.value = 'ble'
-    portLabel.value = `BLE · ${bleDevice.name}`
+    portLabel.value = `BLE 路 ${bleDevice.name}`
     lastError.value = ''
     lastBleDevice.value = bleDevice
     lastSerial.value = ''
@@ -324,7 +355,7 @@ export const useConnectionStore = defineStore('connection', () => {
         'Timed out while opening the Proxmark session over BLE',
       )
       if (!info.open || info.offline) throw new Error('The client could not start a hardware session over BLE.')
-      applySession(info, 'ble', `BLE · ${bleDevice.name}`)
+      applySession(info, 'ble', `BLE 路 ${bleDevice.name}`)
       toast.success(settings.t('toast.bleConnected'))
       void probeDevice()
       return info
@@ -368,13 +399,16 @@ export const useConnectionStore = defineStore('connection', () => {
   async function disconnect() {
     const wasConnected = Boolean(session.value?.open)
     const bleBridge = bridge
+    const transport = androidTransport
     bridge = null
+    androidTransport = null
     try {
       if (wasConnected) await pm3.disconnect()
     } catch (error) {
       lastError.value = errorMessage(error)
     } finally {
       if (bleBridge) await bleBridge.close().catch(() => {})
+      if (transport) await transport.close().catch(() => {})
       resetSession()
       if (wasConnected) toast.info(settings.t('home.disconnectedToast'))
     }

@@ -26,10 +26,10 @@ const EMPTY: DeviceInfo = {
 
 function classify(label: string): keyof Omit<DeviceInfo, 'raw'> | null {
   const normalized = label.toLowerCase()
+  if (normalized === 'device' || normalized.includes('hardware')) return 'hardware'
   if (normalized.includes('firmware') || normalized === 'os') return 'firmware'
   if (normalized.includes('bootrom') || normalized.includes('boot')) return 'bootrom'
   if (normalized.includes('target')) return 'target'
-  if (normalized.includes('hardware')) return 'hardware'
   if (normalized.includes('mcu') || normalized.includes('microcontroller')) return 'mcu'
   if (normalized.includes('protocol')) return 'protocol'
   if (normalized.includes('fpga')) return 'fpga'
@@ -45,6 +45,8 @@ function cleanLine(line: string): string {
     .trim()
 }
 
+const MODEL_CODE = /^(?:PM3\s+)?(?:RDV4|GENERIC|ULTIMATE|ICOPYX|PM5(?:_BWM)?|PROXSPACE)[A-Z0-9_ -]*$/i
+
 /**
  * The client prints human-oriented identification output. Rather than pinning
  * one firmware format, scan for labelled values and keep the first useful hit.
@@ -52,15 +54,28 @@ function cleanLine(line: string): string {
 export function parseDeviceInfo(versionOutput: string, statusOutput: string): DeviceInfo {
   const info: DeviceInfo = { ...EMPTY, raw: [versionOutput, statusOutput].filter(Boolean).join('\n\n') }
   const lines = info.raw.split('\n')
+  let section = ''
 
   for (const rawLine of lines) {
     const line = cleanLine(rawLine)
     if (!line) continue
 
+    const heading = line.match(/^\[([^\]]+)\]$/)
+    if (heading) {
+      section = heading[1].trim().toLowerCase()
+      continue
+    }
+
     const labelled = line.match(/^([A-Za-z][A-Za-z0-9 /_().-]{1,40}?)\s*(?:\.{2,}|:)\s*(.+)$/)
     if (labelled) {
       const key = classify(labelled[1].trim())
       const value = labelled[2].trim()
+      // `[ Model ] Firmware: RDV4` describes the hardware family, not the
+      // client/ARM firmware version. The version comes from `[ ARM ] OS`.
+      if (key === 'firmware' && section === 'model' && MODEL_CODE.test(value)) {
+        if (!info.hardware) info.hardware = value
+        continue
+      }
       if (key && value && !info[key]) info[key] = value
       continue
     }

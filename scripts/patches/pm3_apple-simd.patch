@@ -3,9 +3,9 @@ index 9e941c3..bbde01c 100644
 --- a/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/proxmark3/client/deps/hardnested/hardnested_bf_core.h
 +++ b/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/proxmark3/client/deps/hardnested/hardnested_bf_core.h
 @@ -52,9 +52,7 @@ THE SOFTWARE.
- 
+
  #include "hardnested_bruteforce.h" // statelist_t
- 
+
 -#if ( defined (__i386__) || defined (__x86_64__) ) && \
 -    ( !defined(__APPLE__) || \
 -      (defined(__APPLE__) && (__clang_major__ > 8 || __clang_major__ == 8 && __clang_minor__ >= 1)) )

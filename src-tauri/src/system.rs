@@ -51,14 +51,14 @@ fn is_mobile() -> bool {
 }
 
 pub fn platform_capabilities() -> Capabilities {
+    let android = cfg!(target_os = "android");
     Capabilities {
-        // The embedded client on Android/iOS has no tty layer; USB serial is a
-        // desktop capability only.
-        usb_serial: !is_mobile(),
+        // Android reaches USB serial through the native CDC-ACM transport
+        // bridge; iOS does not expose USB host serial to apps.
+        usb_serial: android || !is_mobile(),
         ble: true,
-        // SPP requires an operating-system serial binding. Android would need a
-        // dedicated native RFCOMM bridge; iOS does not expose SPP at all.
-        spp: cfg!(not(any(target_os = "android", target_os = "ios"))),
+        // Android reaches paired Bluetooth SPP devices through the same bridge.
+        spp: android || !is_mobile(),
         share: is_mobile(),
         native_files: true,
         desktop: !is_mobile(),

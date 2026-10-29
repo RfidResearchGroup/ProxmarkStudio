@@ -255,6 +255,8 @@ export const zh: Record<TranslationKey, string> = {
   'settings.appearance': '外观',
   'settings.appearanceHint': '界面以深色为核心。切换主题只会改变配色，不改变布局。',
   'settings.theme': '主题',
+  'settings.themeAbyss': '深海蓝',
+  'settings.themeAbyssDesc': '深海蓝底色搭配电光蓝强调色。',
   'settings.themeMidnight': '午夜',
   'settings.themeMidnightDesc': '深海军蓝，搭配薄荷色信号高光。',
   'settings.themeCarbon': '碳纤',

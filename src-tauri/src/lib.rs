@@ -45,6 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_share::init())
         .plugin(tauri_plugin_blec::init())
         .plugin(tauri_plugin_proxmark3::init())
+        .plugin(tauri_plugin_transport::init())
         .setup(|app| {
             let home = resolve_home(app.handle())?;
             fs::create_dir_all(home.join("cache"))?;

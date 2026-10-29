@@ -143,6 +143,46 @@
   --grid-line: rgba(170, 150, 255, 0.05);
 }
 
+[data-theme='abyss'] {
+  --bg: #050b16;
+  --bg-deep: #02060d;
+  --bg-raised: #071323;
+  --panel: rgba(10, 22, 40, 0.84);
+  --panel-solid: #091526;
+  --panel-strong: #0e1f37;
+  --panel-hover: rgba(20, 43, 75, 0.72);
+  --panel-inset: rgba(4, 12, 24, 0.62);
+
+  --border: rgba(106, 168, 255, 0.14);
+  --border-strong: rgba(106, 168, 255, 0.28);
+  --border-accent: rgba(77, 159, 255, 0.46);
+
+  --text: #eef6ff;
+  --text-soft: #c2d6f2;
+  --muted: #7f9bc0;
+  --faint: #526b8f;
+
+  --accent: #4d9fff;
+  --accent-strong: #8cc4ff;
+  --accent-dim: rgba(77, 159, 255, 0.14);
+  --accent-faint: rgba(77, 159, 255, 0.06);
+  --accent-contrast: #03101f;
+  --secondary: #36e0ff;
+  --secondary-dim: rgba(54, 224, 255, 0.12);
+  --danger: #ff6b81;
+  --danger-dim: rgba(255, 107, 129, 0.12);
+  --warning: #ffc46b;
+  --warning-dim: rgba(255, 196, 107, 0.12);
+  --success: #4cf0c8;
+
+  --hero-wash: radial-gradient(circle at 78% 18%, rgba(77, 159, 255, 0.2), transparent 42%),
+    radial-gradient(circle at 12% 88%, rgba(54, 224, 255, 0.12), transparent 48%),
+    linear-gradient(135deg, rgba(12, 27, 52, 0.96), rgba(4, 10, 21, 0.98));
+  --glow-accent: 0 0 32px rgba(77, 159, 255, 0.26);
+  --shadow-panel: 0 24px 64px rgba(0, 0, 0, 0.46);
+  --grid-line: rgba(100, 160, 255, 0.05);
+}
+
 *,
 *::before,
 *::after {

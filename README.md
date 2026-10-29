@@ -32,7 +32,7 @@ ULTIMATE, ICOPVX, Proxmark5 and other Proxmark variants.
 - **Client resources** downloaded from the matching plugin GitHub release. The
   app resolves the release by the client commit, verifies SHA-256, and installs
   the archive into the client's user resource layout automatically.
-- **Dark-first design** with three themes, a desktop sidebar, a mobile tab bar,
+- **Dark-first design** with four themes (Abyss blue by default), a desktop sidebar, a mobile tab bar,
   and a frameless desktop window with custom chrome.
 - **English + Simplified Chinese**, following the system language by default and
   switchable in Settings.
@@ -45,9 +45,9 @@ ULTIMATE, ICOPVX, Proxmark5 and other Proxmark variants.
 
 | Capability | Windows | macOS | Linux | Android | iOS |
 | --- | --- | --- | --- | --- | --- |
-| USB serial | Yes | Yes | Yes | Not exposed by this build | Unsupported by iOS |
+| USB serial | Yes | Yes | Yes | Yes (CDC-ACM) | Unsupported by iOS |
 | Bluetooth LE | Yes | Yes | Yes | Yes | Yes |
-| Bluetooth SPP | Yes (paired COM) | Yes (paired serial) | Yes (paired rfcomm) | Not exposed by this build | Unsupported by iOS |
+| Bluetooth SPP | Yes (paired COM) | Yes (paired serial) | Yes (paired rfcomm) | Yes (paired device) | Unsupported by iOS |
 | Share sheet | Reveal in Explorer | Reveal in Finder | Open folder | Yes | Yes |
 | Frameless desktop chrome | Yes | Yes | Yes | n/a | n/a |
 
@@ -56,10 +56,9 @@ The capability flags come from
 available, its tab is disabled and the UI explains why; it is never offered as a
 dead control.
 
-> Android USB serial and SPP require native Android bridges that are outside the
-> current embedded-client build. BLE is fully supported on Android. The
-> capability table is the source of truth and can be extended without changing
-> the UI.
+> Android USB serial uses a native CDC-ACM bridge; Android SPP uses an RFCOMM
+> socket. Both are exposed through the local loopback bridge, so the embedded
+> client sees the same TCP transport it uses for BLE.
 
 ## Bluetooth LE
 
@@ -105,7 +104,8 @@ itself so the statically linked client sees the same directory.
 - **Shell**: Tauri 2.12 (Rust), `tauri-plugin-proxmark3` 0.2.1 (static libpm3)
 - **UI**: Vue 3.5, Pinia, Vue Router, Vite 6, TypeScript
 - **Terminal**: `@xterm/xterm` + `@xterm/addon-fit`
-- **Transport**: `tauri-plugin-blec` for BLE, serialport for USB/SPP discovery
+- **Transport**: `tauri-plugin-blec` for BLE, serialport for USB/SPP discovery,
+  and the local `tauri-plugin-transport` for Android USB CDC-ACM + Bluetooth SPP
 - **Resources**: reqwest (rustls) + zip + sha2
 - **Mobile sharing**: `tauri-plugin-share`
 
@@ -117,7 +117,8 @@ src-tauri/            Tauri/Rust backend and desktop configuration
   src/system.rs       platform capabilities, paths, serial discovery
   src/files.rs        sandboxed workspace file operations
   src/resources.rs    GitHub release matching + resource installer
-  src/bridge.rs       loopback TCP bridge for BLE frames
+  src/bridge.rs       loopback TCP bridge for BLE/USB/SPP frames
+plugins/tauri-plugin-transport  Android USB CDC-ACM + Bluetooth SPP bridge
 scripts/              frontend runner, plugin bootstrap, Windows/Android helpers
 docs/screenshots/     UI captures
 src-tauri/gen/android Android Studio project (committed for manifest tweaks)
@@ -145,8 +146,8 @@ will fail with an explicit message from the plugin.
 ```bash
 pnpm install
 # Download the pinned plugin crate into _temp and apply the local compatibility
-# patches (Cargo links key, Android CMake, GUI stdout capture, static Windows
-# libraries).
+# patches (Cargo links key, Android CMake, CMake version fallback, GUI stdout
+# capture, interactive stdin, static Windows libraries, Apple x86_64 SIMD).
 powershell -ExecutionPolicy Bypass -File scripts/setup-plugin.ps1   # Windows
 # or
 bash scripts/setup-plugin.sh                                        # Linux/macOS
@@ -159,11 +160,16 @@ release URL and SHA-256, so the source tree stays small and reproducible.
 
 ```powershell
 # optional if MSYS2 is not at the default path
-$env:PM3X_MINGW_BIN = 'C:\UserProgram\msys2\ucrt64\bin'
+$env:PM3X_MINGW_BIN = 'C:\msys64\ucrt64\bin'
 
 powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1          # development window
 powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1 -Release # release exe
 powershell -ExecutionPolicy Bypass -File scripts/tauri-windows.ps1 -Release -Bundle
+```
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu
+rustup target add x86_64-pc-windows-gnu
 ```
 
 If you prefer the CLI directly:
@@ -220,7 +226,15 @@ powershell -ExecutionPolicy Bypass -File scripts/tauri-android.ps1 -Debug -Apk
 
 If you keep the NDK under `_temp/android-ndk/android-ndk-r27c`,
 `scripts/tauri-android.ps1` finds it automatically. Otherwise set `NDK_HOME` to
-an r27+ installation.
+an r27+ installation. The script also discovers the Android SDK from
+`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or the standard per-user SDK location, and
+finds a JDK 17+ from `JAVA_HOME` or the usual Program Files locations.
+
+Android USB serial is implemented by the local `tauri-plugin-transport` crate:
+it opens CDC-ACM bulk endpoints, bridges them to the loopback TCP transport, and
+exposes paired-classic Bluetooth devices over RFCOMM SPP the same way. The
+plugin requests USB access on first use; Android shows its standard permission
+dialog.
 
 The generated Android project lives in
 [`src-tauri/gen/android`](src-tauri/gen/android) and is committed because the
