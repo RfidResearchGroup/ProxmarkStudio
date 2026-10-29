@@ -39,6 +39,10 @@ const reconnecting = ref(false)
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
 let resizeObserver: ResizeObserver | null = null
+let pinchDistance = 0
+let pinchFont = 0
+let pinchFrame: number | null = null
+let removeTouchGestures: (() => void) | null = null
 let lineBuffer = ''
 let runningBuffer = ''
 let colorPending = ''
@@ -136,27 +140,53 @@ function terminalTheme() {
 
 function writeWelcome() {
   if (!term) return
-  const accent = hexToRgbTriplet(cssVar('--accent'))
-  const muted = hexToRgbTriplet(cssVar('--faint'))
-  const client = connection.clientVersion || connection.session?.version || 'Proxmark3 client'
-  const port = connection.portLabel || '—'
-  term.writeln('')
-  term.writeln(`\x1b[1;38;2;${accent}m  P R O X M A R K   S T U D I O  \x1b[0m`)
-  term.writeln(`\x1b[38;2;${muted}m  RFID WORKBENCH  /  CLIENT TERMINAL\x1b[0m`)
-  term.writeln(`\x1b[38;2;${muted}m  ---------------------------------\x1b[0m`)
-  term.writeln('')
-  term.writeln(`\x1b[1m ${settings.t('terminal.welcome')}\x1b[0m`)
-  term.writeln(`\x1b[38;2;${muted}m ${settings.t('terminal.welcomeClient', { version: client })}\x1b[0m`)
-  term.writeln(`\x1b[38;2;${muted}m ${settings.t('terminal.welcomeSession', { port })}\x1b[0m`)
-  term.writeln('')
-  term.writeln(
-    `\x1b[38;2;${muted}m ${settings.t('terminal.welcomeHint', { command: 'hw version' })}\x1b[0m`,
-  )
-  term.writeln('')
-  if (connection.isConnected) {
-    term.write(prompt)
-  } else {
-    term.writeln(`\x1b[38;2;${muted}m ${settings.t('terminal.notConnectedBanner')}\x1b[0m`)
+  if (connection.isConnected) term.write(prompt)
+}
+
+function touchDistance(touches: TouchList): number {
+  const a = touches.item(0)
+  const b = touches.item(1)
+  if (!a || !b) return 0
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+}
+
+function installTouchGestures(host: HTMLElement) {
+  const onStart = (event: TouchEvent) => {
+    if (event.touches.length !== 2) return
+    pinchDistance = touchDistance(event.touches)
+    pinchFont = term?.options.fontSize ?? 13.5
+  }
+  const onMove = (event: TouchEvent) => {
+    if (event.touches.length !== 2 || pinchDistance <= 0) return
+    event.preventDefault()
+    const next = Math.min(24, Math.max(9, pinchFont * (touchDistance(event.touches) / pinchDistance)))
+    if (!term || Math.abs(next - (term.options.fontSize ?? 13.5)) < 0.05) return
+    term.options.fontSize = next
+    if (pinchFrame === null) {
+      pinchFrame = window.requestAnimationFrame(() => {
+        pinchFrame = null
+        fitAddon?.fit()
+      })
+    }
+  }
+  const onEnd = (event: TouchEvent) => {
+    if (event.touches.length < 2) {
+      pinchDistance = 0
+      pinchFont = 0
+    }
+  }
+  host.addEventListener('touchstart', onStart, { passive: true })
+  host.addEventListener('touchmove', onMove, { passive: false })
+  host.addEventListener('touchend', onEnd, { passive: true })
+  host.addEventListener('touchcancel', onEnd, { passive: true })
+  removeTouchGestures = () => {
+    host.removeEventListener('touchstart', onStart)
+    host.removeEventListener('touchmove', onMove)
+    host.removeEventListener('touchend', onEnd)
+    host.removeEventListener('touchcancel', onEnd)
+    if (pinchFrame !== null) window.cancelAnimationFrame(pinchFrame)
+    pinchFrame = null
+    removeTouchGestures = null
   }
 }
 
@@ -170,6 +200,8 @@ function initialiseTerminal() {
     lineHeight: 1.4,
     letterSpacing: 0.1,
     scrollback: 8000,
+    scrollSensitivity: 3,
+    smoothScrollDuration: 0,
     convertEol: true,
     allowTransparency: true,
     theme: terminalTheme(),
@@ -178,6 +210,7 @@ function initialiseTerminal() {
   term.loadAddon(fitAddon)
   term.open(terminalHost.value)
   fitAddon.fit()
+  installTouchGestures(terminalHost.value)
   terminalReady.value = true
   writeWelcome()
   term.focus()
@@ -461,6 +494,7 @@ watch(
         term.focus()
       }
     } else if (term) {
+      removeTouchGestures?.()
       term.writeln('')
       term.writeln(`\x1b[33m${settings.t('terminal.sessionEnded')}\x1b[0m`)
       term.dispose()
@@ -490,6 +524,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
+  removeTouchGestures?.()
   resizeObserver?.disconnect()
   term?.dispose()
   term = null
@@ -693,6 +728,15 @@ onUnmounted(() => {
 
 .terminal-host :deep(.xterm-viewport) {
   background: transparent !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto;
+  touch-action: pan-y;
+}
+
+.terminal-host :deep(.xterm),
+.terminal-host :deep(.xterm-screen) {
+  touch-action: pan-y;
 }
 
 .terminal-host :deep(.xterm-screen) {

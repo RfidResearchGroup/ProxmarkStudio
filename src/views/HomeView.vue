@@ -150,7 +150,18 @@ const unifiedDevices = computed<UnifiedDevice[]>(() => {
       })
     }
   }
-  return devices.sort(compareDevices)
+  const unique = new Map<string, UnifiedDevice>()
+  for (const device of devices) {
+    const key =
+      device.kind === 'usb'
+        ? `usb:${device.port?.path ?? device.detail}`
+        : `bt:${(device.detail || device.name).toUpperCase()}`
+    const previous = unique.get(key)
+    if (!previous || (device.kind === 'ble' && previous.kind === 'spp')) {
+      unique.set(key, device)
+    }
+  }
+  return [...unique.values()].sort(compareDevices)
 })
 
 const selectedDevice = computed(
@@ -771,6 +782,41 @@ onUnmounted(() => {
   padding: 30px 32px;
   background: var(--hero-wash);
   overflow: hidden;
+}
+
+.home {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 38px);
+}
+
+.home > .page-head {
+  flex: none;
+}
+
+.hero:not(.hero--connected) {
+  flex: 1;
+  min-height: 0;
+}
+
+.hero:not(.hero--connected) .hero__content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.hero:not(.hero--connected) .connect-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hero:not(.hero--connected) .device-list--unified {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
 }
 
 .hero--connected {
