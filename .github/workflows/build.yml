@@ -31,6 +31,7 @@ jobs:
           - name: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
             bundles: nsis
             artifact: ProxmarkStudio-windows-x64
             paths: |
@@ -39,18 +40,21 @@ jobs:
           - name: macos-x64
             os: macos-15-intel
             target: x86_64-apple-darwin
-            bundles: dmg
+            toolchain: stable
+            bundles: app
             artifact: ProxmarkStudio-macos-x64
-            paths: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            paths: src-tauri/target/x86_64-apple-darwin/release/ProxmarkStudio-macos-x64.dmg
           - name: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
-            bundles: dmg
+            toolchain: stable
+            bundles: app
             artifact: ProxmarkStudio-macos-arm64
-            paths: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            paths: src-tauri/target/aarch64-apple-darwin/release/ProxmarkStudio-macos-arm64.dmg
           - name: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            toolchain: stable
             bundles: appimage,deb
             artifact: ProxmarkStudio-linux-x64
             paths: |
@@ -78,6 +82,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: ${{ matrix.toolchain }}
           targets: ${{ matrix.target }}
 
       - name: Cache Rust
@@ -143,11 +148,22 @@ jobs:
       - name: Build
         shell: bash
         env:
+          RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
           PM3X_MINGW_BIN: ${{ steps.msys2.outputs['msys2-location'] }}\ucrt64\bin
         run: |
           pnpm tauri build \
             --target "${{ matrix.target }}" \
             --bundles "${{ matrix.bundles }}"
+
+      - name: Package macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          target="${{ matrix.target }}"
+          app="$(find "src-tauri/target/$target/release/bundle/macos" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app"
+          hdiutil create -volname "Proxmark Studio" -srcfolder "$app" -ov -format UDZO \
+            "src-tauri/target/$target/release/ProxmarkStudio-${{ matrix.name }}.dmg"
 
       - name: Package portable Windows build
         if: runner.os == 'Windows'
