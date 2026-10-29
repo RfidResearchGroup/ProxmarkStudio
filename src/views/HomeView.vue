@@ -104,7 +104,7 @@ const unifiedDevices = computed<UnifiedDevice[]>(() => {
         kind: 'usb',
         name: port.product || port.path,
         detail: [port.path, port.manufacturer].filter(Boolean).join(' · '),
-        meta: port.serialNumber || '',
+        meta: '',
         port,
       })
     }
@@ -2151,7 +2151,9 @@ onUnmounted(() => {
   .home {
     display: flex;
     flex-direction: column;
-    min-height: calc(100dvh - var(--header-height) - env(safe-area-inset-top));
+    height: calc(100dvh - var(--header-height) - env(safe-area-inset-top));
+    min-height: 0;
+    overflow: hidden;
   }
 
   .home > .page-head {
@@ -2162,7 +2164,8 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: calc(100dvh - 360px);
+    min-height: 0;
+    overflow: hidden;
     padding: 12px;
   }
 
@@ -2171,6 +2174,7 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
   }
 
   .hero:not(.hero--connected) .hero__status,
@@ -2188,10 +2192,12 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
     margin-top: 10px;
   }
 
   .connect-panel__head {
+    flex: none;
     align-items: center;
     padding: 10px 11px 8px;
   }
@@ -2211,8 +2217,12 @@ onUnmounted(() => {
 
   .device-list--unified {
     flex: 1;
+    min-height: 0;
     max-height: none;
-    min-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .device-option {
@@ -2235,6 +2245,12 @@ onUnmounted(() => {
 
   .connect-panel__foot .btn {
     min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .home .head-actions {
+    display: none;
   }
 }
 
