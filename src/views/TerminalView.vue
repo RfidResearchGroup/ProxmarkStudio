@@ -177,16 +177,21 @@ function setFontSize(next: number) {
   if (term) term.options.fontSize = fontSize.value
   requestAnimationFrame(() => {
     fitAddon?.fit()
-    term?.focus()
+    requestAnimationFrame(() => {
+      fitAddon?.fit()
+      term?.scrollToBottom()
+    })
   })
 }
 
 function syncViewport() {
   if (!terminalPage.value) return
-  if (window.matchMedia('(max-width: 860px)').matches && window.visualViewport) {
-    terminalPage.value.style.height = `${window.visualViewport.height}px`
-  } else {
+  const viewport = window.visualViewport
+  if (!viewport) {
     terminalPage.value.style.height = ''
+  } else {
+    const top = Math.max(0, terminalPage.value.getBoundingClientRect().top - viewport.offsetTop)
+    terminalPage.value.style.height = `${Math.max(0, viewport.height - top)}px`
   }
   if (viewportFrame === null) {
     viewportFrame = window.requestAnimationFrame(() => {
@@ -649,20 +654,23 @@ onUnmounted(() => {
     </header>
 
     <div v-if="connection.isConnected" class="terminal-toolbar" role="toolbar">
-      <button class="terminal-toolbar__key" @click="toolbarKey('escape')">Esc</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('tab')">Tab</button>
-      <button class="terminal-toolbar__key" :class="{ 'is-active': ctrlArmed }" @click="toolbarKey('ctrl')">Ctrl</button>
-      <button class="terminal-toolbar__key" :class="{ 'is-active': shiftArmed }" @click="toolbarKey('shift')">Shift</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('left')">←</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('up')">↑</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('down')">↓</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('right')">→</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('pipe')">|</button>
-      <button class="terminal-toolbar__key" @click="toolbarKey('tilde')">~</button>
-      <span class="terminal-toolbar__spacer" />
-      <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize - 1)">A−</button>
-      <span class="terminal-toolbar__size mono">{{ Math.round(fontSize) }}</span>
-      <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize + 1)">A+</button>
+      <div class="terminal-toolbar__keys">
+        <button class="terminal-toolbar__key" @click="toolbarKey('escape')">Esc</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('tab')">Tab</button>
+        <button class="terminal-toolbar__key" :class="{ 'is-active': ctrlArmed }" @click="toolbarKey('ctrl')">Ctrl</button>
+        <button class="terminal-toolbar__key" :class="{ 'is-active': shiftArmed }" @click="toolbarKey('shift')">Shift</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('left')">←</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('up')">↑</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('down')">↓</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('right')">→</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('pipe')">|</button>
+        <button class="terminal-toolbar__key" @click="toolbarKey('tilde')">~</button>
+      </div>
+      <div class="terminal-toolbar__fontbar">
+        <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize - 1)">A−</button>
+        <span class="terminal-toolbar__size mono">{{ Math.round(fontSize) }}</span>
+        <button class="terminal-toolbar__key terminal-toolbar__font" @click="setFontSize(fontSize + 1)">A+</button>
+      </div>
     </div>
 
     <div v-if="connection.isConnected" class="terminal-body">
@@ -712,8 +720,9 @@ onUnmounted(() => {
 
 <style scoped>
 .terminal-page {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100vh;
   height: 100dvh;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
@@ -725,6 +734,7 @@ onUnmounted(() => {
 }
 
 .terminal-bar {
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -738,20 +748,35 @@ onUnmounted(() => {
 }
 
 .terminal-toolbar {
+  grid-row: 2;
   display: none;
-  align-items: center;
-  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  align-items: flex-start;
+  gap: 4px;
   flex: none;
   padding: 6px 8px;
-  overflow-x: auto;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
   background: rgba(8, 13, 22, 0.94);
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 
-.terminal-toolbar::-webkit-scrollbar {
-  display: none;
+.terminal-toolbar__keys {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  overflow: visible;
+}
+
+.terminal-toolbar__fontbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding-left: 4px;
+  border-left: 1px solid var(--border);
 }
 
 .terminal-toolbar__key {
@@ -773,11 +798,6 @@ onUnmounted(() => {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-faint);
-}
-
-.terminal-toolbar__spacer {
-  flex: 1;
-  min-width: 10px;
 }
 
 .terminal-toolbar__font {
@@ -857,6 +877,7 @@ onUnmounted(() => {
 }
 
 .terminal-body {
+  grid-row: 3;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -910,6 +931,7 @@ onUnmounted(() => {
 }
 
 .terminal-empty {
+  grid-row: 3;
   display: grid;
   place-items: center;
   flex: 1;
@@ -963,6 +985,7 @@ onUnmounted(() => {
 }
 
 .terminal-status {
+  grid-row: 4;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1055,10 +1078,12 @@ onUnmounted(() => {
   }
 
   .terminal-host {
-    padding: 9px 2px 6px 10px;
+    padding: 9px 2px 18px 10px;
   }
 
   .terminal-status {
+    position: relative;
+    z-index: 2;
     padding: 0 10px;
     gap: 8px;
   }
