@@ -72,7 +72,7 @@ Auto-detection understands:
 | Device | Service | Characteristic | Notes |
 | --- | --- | --- | --- |
 | Proxmark5 BWM ESP32 | `0xAE86` | `0xAE88` | Read + write + notify on one characteristic, per the [BWM DEV.md](https://github.com/RfidResearchGroup/Proxmark5_BWM_esp32/blob/master/DEV.md) |
-| Nordic UART bridge | `6E400001-…` | RX `6E400002-…`, TX `6E400003-…` | Common third-party BLE add-ons |
+| Nordic UART bridge | `6E400001-B5A3-F393-E0A9-E50E24DCCA9E` | RX `6E400002-B5A3-F393-E0A9-E50E24DCCA9E`, TX `6E400003-B5A3-F393-E0A9-E50E24DCCA9E` | Common third-party BLE add-ons |
 | Generic UART | any | first write + notify pair | HM-10 and similar modules |
 
 The Proxmark5 BWM values are the defaults in Settings. Custom service and
@@ -144,8 +144,9 @@ will fail with an explicit message from the plugin.
 
 ```bash
 pnpm install
-# download the pinned, self-contained plugin crate into _temp and patch its
-# Cargo `links` key so Tauri's ACL namespace matches the runtime plugin name
+# Download the pinned plugin crate into _temp and apply the local compatibility
+# patches (Cargo links key, Android CMake, GUI stdout capture, static Windows
+# libraries).
 powershell -ExecutionPolicy Bypass -File scripts/setup-plugin.ps1   # Windows
 # or
 bash scripts/setup-plugin.sh                                        # Linux/macOS
@@ -172,8 +173,27 @@ node node_modules/@tauri-apps/cli/tauri.js dev --target x86_64-pc-windows-gnu
 node node_modules/@tauri-apps/cli/tauri.js build --target x86_64-pc-windows-gnu --no-bundle
 ```
 
-`.cargo/config.toml` points the GNU target at the MSYS2 UCRT64 linker used on
-the development machine. Adjust `linker`/`ar` if your MSYS2 lives elsewhere.
+The root `.cargo/config.toml` selects the GNU target's linker from `PATH`. The
+build script and CI put the MSYS2 UCRT64 `bin` directory first; `PM3X_MINGW_BIN`
+is still used by the plugin's build script to locate `gcc`, `g++` and the
+MSYS2 bzip2/lz4 libraries. The Windows release links bzip2, lz4, zlib and
+winpthread statically, so the produced `.exe` runs without MSYS2 installed.
+
+### Automated builds
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) builds and packages:
+
+| Artifact | Runner | Output |
+| --- | --- | --- |
+| Windows x64 | `windows-latest` | NSIS installer + portable ZIP |
+| macOS Intel | `macos-15-intel` | `.dmg` |
+| macOS Apple Silicon | `macos-14` | `.dmg` |
+| Linux x64 | `ubuntu-22.04` | AppImage + Debian package |
+| Android arm64 | `ubuntu-latest` | debug APK |
+
+The workflow runs on every push to `main`, pull requests, and manual dispatch.
+Pushing a `v*` tag additionally publishes all packages to the GitHub release for
+that tag. Builds are available as workflow artifacts for 14 days.
 
 ### Linux / macOS
 

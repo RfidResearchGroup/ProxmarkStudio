@@ -44,9 +44,49 @@ function Repair-AndroidCMake {
   }
 }
 
+# GUI builds on Windows have no console, so fd 1 is not a valid handle.  The
+# upstream bridge assumed it could always _dup() stdout, which made every
+# terminal command fail with "cannot redirect stdout".  Apply the portable
+# capture fix (see scripts/patches/pm3_bridge-stdout-capture.patch).
+function Repair-StdoutCapture {
+  $shim = Join-Path $pluginDir 'shim/pm3_bridge.c'
+  if (-not (Test-Path $shim)) { return }
+  if ((Get-Content -Raw $shim) -match 'pm3x_save_stdout') { return }
+
+  $patch = Join-Path $PSScriptRoot 'patches/pm3_bridge-stdout-capture.patch'
+  if (-not (Test-Path $patch)) { throw "Missing patch: $patch" }
+
+  git -C $root apply --check $patch
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cannot apply $patch. The plugin sources may have changed."
+  }
+  git -C $root apply $patch
+  Write-Host 'Patched stdout capture for GUI builds' -ForegroundColor Yellow
+}
+
+# Keep the Windows release self-contained: MSYS2 bzip2/lz4/winpthread are
+# available as static archives, and the app must start without MSYS2 on PATH.
+function Repair-StaticWindows {
+  $build = Join-Path $pluginDir 'build.rs'
+  if (-not (Test-Path $build)) { return }
+  if ((Get-Content -Raw $build) -match 'static=pthread') { return }
+
+  $patch = Join-Path $PSScriptRoot 'patches/pm3_build-static-windows.patch'
+  if (-not (Test-Path $patch)) { throw "Missing patch: $patch" }
+
+  git -C $root apply --check $patch
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cannot apply $patch. The plugin sources may have changed."
+  }
+  git -C $root apply $patch
+  Write-Host 'Patched Windows static library linking' -ForegroundColor Yellow
+}
+
 if ((Test-Path $manifest) -and -not $Force) {
   Repair-Links -Path $manifest
   Repair-AndroidCMake
+  Repair-StdoutCapture
+  Repair-StaticWindows
   Write-Host "Proxmark3 plugin already present: $pluginDir" -ForegroundColor Green
   exit 0
 }
@@ -68,4 +108,6 @@ if (-not (Test-Path $manifest)) {
 }
 Repair-Links -Path $manifest
 Repair-AndroidCMake
+Repair-StdoutCapture
+Repair-StaticWindows
 Write-Host "Proxmark3 plugin ready: $pluginDir" -ForegroundColor Green

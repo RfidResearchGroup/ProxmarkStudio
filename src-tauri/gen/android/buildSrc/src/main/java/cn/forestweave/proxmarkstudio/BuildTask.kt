@@ -23,7 +23,9 @@ abstract class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """C:\nvm4w\nodejs\node.exe""";
+        // Resolve Node.js from PATH so the same generated project builds on
+        // Windows, macOS and Linux CI runners.
+        val executable = "node"
         try {
             runTauriCli(executable)
         } catch (e: Exception) {

@@ -197,6 +197,16 @@ function initialiseSelections() {
   if (!selectedSpp.value && connection.sppPorts.length) selectedSpp.value = connection.sppPorts[0].path
 }
 
+function syncSelections() {
+  if (selectedUsb.value && !connection.usbPorts.some((port) => port.path === selectedUsb.value)) {
+    selectedUsb.value = ''
+  }
+  if (selectedSpp.value && !connection.sppPorts.some((port) => port.path === selectedSpp.value)) {
+    selectedSpp.value = ''
+  }
+  initialiseSelections()
+}
+
 async function refreshAll() {
   refreshing.value = true
   try {
@@ -298,13 +308,13 @@ function openDocs() {
 
 watch(
   () => connection.usbPorts,
-  () => initialiseSelections(),
+  () => syncSelections(),
   { deep: true },
 )
 
 watch(
   () => connection.sppPorts,
-  () => initialiseSelections(),
+  () => syncSelections(),
   { deep: true },
 )
 

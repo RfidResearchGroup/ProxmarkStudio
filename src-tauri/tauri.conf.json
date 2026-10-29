@@ -45,7 +45,7 @@
     "category": "DeveloperTool",
     "shortDescription": "Proxmark3 workbench",
     "longDescription": "Connect to a Proxmark3 over USB serial, Bluetooth LE or Bluetooth SPP. Inspect the device, manage its working files, install client resources and run commands in an integrated terminal.",
-    "copyright": "GPL-3.0-or-later. Proxmark3 client 漏 Proxmark3 contributors.",
+    "copyright": "GPL-3.0-or-later. Proxmark3 client (c) Proxmark3 contributors.",
     "android": {
       "minSdkVersion": 26
     },

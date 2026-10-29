@@ -59,6 +59,80 @@ export const useConnectionStore = defineStore('connection', () => {
 
   let bridge: BleBridge | null = null
   let bleDisconnectInFlight = false
+  let deviceWatchTimer: number | null = null
+  let deviceCheckBusy = false
+
+  const DEVICE_WATCH_INTERVAL = 2500
+
+  function portKey(value: string): string {
+    // Windows exposes the same port as COM3 and \\.\COM3 depending on the API.
+    return value
+      .trim()
+      .replace(/^\\\\\.\\/, '')
+      .toLowerCase()
+  }
+
+  function stopDeviceWatch() {
+    if (deviceWatchTimer !== null) {
+      window.clearInterval(deviceWatchTimer)
+      deviceWatchTimer = null
+    }
+  }
+
+  async function checkDevicePresence() {
+    if (!isConnected.value || (transport.value !== 'usb' && transport.value !== 'spp')) {
+      stopDeviceWatch()
+      return
+    }
+    if (deviceCheckBusy) return
+    deviceCheckBusy = true
+    try {
+      const ports = await listSerialPorts()
+      serialPorts.value = ports
+      if (!isConnected.value) return
+
+      const expected = [session.value?.port, lastSerial.value, portLabel.value]
+        .filter((value): value is string => Boolean(value))
+        .map(portKey)
+      if (!expected.length) return
+
+      const present = ports.some((port) => expected.includes(portKey(port.path)))
+      if (!present) await handleDeviceLost()
+    } catch {
+      // A transient enumeration failure is not proof that the device is gone.
+    } finally {
+      deviceCheckBusy = false
+    }
+  }
+
+  function startDeviceWatch() {
+    stopDeviceWatch()
+    if (transport.value !== 'usb' && transport.value !== 'spp') return
+    deviceWatchTimer = window.setInterval(() => {
+      void checkDevicePresence()
+    }, DEVICE_WATCH_INTERVAL)
+  }
+
+  async function handleDeviceLost() {
+    if (transport.value !== 'usb' && transport.value !== 'spp') return
+    if (!session.value?.open) return
+
+    stopDeviceWatch()
+    lastError.value = settings.t('home.deviceLost')
+    status.value = 'error'
+    session.value = null
+    device.value = null
+    connectedAt.value = null
+    toast.error(settings.t('home.deviceLostToast'), settings.t('home.deviceLostBody'))
+
+    // The port is gone, so closing the client session may block on the dead
+    // handle.  Do not make the UI wait for it.
+    try {
+      await withTimeout(pm3.disconnect(), 3000, 'disconnect timed out')
+    } catch {
+      /* the device is already gone */
+    }
+  }
 
   const isConnected = computed(
     () => status.value === 'connected' && Boolean(session.value?.open) && !session.value?.offline,
@@ -89,9 +163,11 @@ export const useConnectionStore = defineStore('connection', () => {
     status.value = 'connected'
     connectedAt.value = Date.now()
     lastError.value = ''
+    startDeviceWatch()
   }
 
   function resetSession() {
+    stopDeviceWatch()
     session.value = null
     device.value = null
     status.value = 'idle'
@@ -123,8 +199,13 @@ export const useConnectionStore = defineStore('connection', () => {
   async function refreshSession() {
     try {
       const info = await pm3.status()
-      if (info.open && !info.offline && status.value === 'connected') {
-        session.value = info
+      if (info.open && !info.offline) {
+        if (status.value === 'connected') session.value = info
+      } else if (status.value === 'connected') {
+        // The client closed the session underneath us (for example after the
+        // cable was pulled while a command was running).
+        if (transport.value === 'ble') await handleBleDisconnect()
+        else await handleDeviceLost()
       }
       return info
     } catch {
@@ -154,6 +235,8 @@ export const useConnectionStore = defineStore('connection', () => {
       ])
       const versionOut = versionResult.status === 'fulfilled' ? versionResult.value.output : ''
       const statusOut = statusResult.status === 'fulfilled' ? statusResult.value.output : ''
+      // The port may have disappeared while the two commands were running.
+      if (!isConnected.value) return
       device.value = parseDeviceInfo(versionOut, statusOut)
       if (!versionOut && !statusOut) {
         const reason =

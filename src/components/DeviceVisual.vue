@@ -51,7 +51,7 @@ defineProps<{
     <span class="tag tag--usb">USB</span>
     <span class="tag tag--ble">BLE</span>
     <span class="tag tag--rf">RF</span>
-    <span class="visual__status">{{ connected ? 'LINK ACTIVE' : connecting ? 'NEGOTIATING' : 'STANDBY' }}</span>
+    <span class="visual__status">{{ connected ? 'CONNECTED' : connecting ? 'NEGOTIATING' : 'STANDBY' }}</span>
   </div>
 </template>
 

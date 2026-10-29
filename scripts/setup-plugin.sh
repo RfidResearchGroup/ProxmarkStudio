@@ -32,9 +32,44 @@ repair_android_cmake() {
   fi
 }
 
+# GUI builds on Windows have no console, so fd 1 is not a valid handle.  The
+# upstream bridge assumed it could always dup() stdout, which made every
+# terminal command fail with "cannot redirect stdout".
+repair_stdout_capture() {
+  local shim="$PLUGIN/shim/pm3_bridge.c"
+  local patch="$ROOT/scripts/patches/pm3_bridge-stdout-capture.patch"
+  [ -f "$shim" ] || return 0
+  grep -q 'pm3x_save_stdout' "$shim" && return 0
+  [ -f "$patch" ] || { echo "Missing patch: $patch" >&2; exit 1; }
+  if ! git -C "$ROOT" apply --check "$patch"; then
+    echo "Cannot apply $patch. The plugin sources may have changed." >&2
+    exit 1
+  fi
+  git -C "$ROOT" apply "$patch"
+  echo "Patched stdout capture for GUI builds"
+}
+
+# Keep the Windows release self-contained: MSYS2 bzip2/lz4/winpthread are
+# available as static archives, and the app must start without MSYS2 on PATH.
+repair_static_windows() {
+  local build="$PLUGIN/build.rs"
+  local patch="$ROOT/scripts/patches/pm3_build-static-windows.patch"
+  [ -f "$build" ] || return 0
+  grep -q 'static=pthread' "$build" && return 0
+  [ -f "$patch" ] || { echo "Missing patch: $patch" >&2; exit 1; }
+  if ! git -C "$ROOT" apply --check "$patch"; then
+    echo "Cannot apply $patch. The plugin sources may have changed." >&2
+    exit 1
+  fi
+  git -C "$ROOT" apply "$patch"
+  echo "Patched Windows static library linking"
+}
+
 if [ -f "$PLUGIN/Cargo.toml" ]; then
   repair_links
   repair_android_cmake
+  repair_stdout_capture
+  repair_static_windows
   echo "Proxmark3 plugin already present: $PLUGIN"
   exit 0
 fi
@@ -56,4 +91,6 @@ rm -rf "$PLUGIN"
 tar -xzf "$ARCHIVE" -C "$EXTRACT"
 repair_links
 repair_android_cmake
+repair_stdout_capture
+repair_static_windows
 echo "Proxmark3 plugin ready: $PLUGIN"

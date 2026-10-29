@@ -2,16 +2,9 @@
 # with the GNU ABI, so the Windows build always targets x86_64-pc-windows-gnu.
 # Set PM3X_MINGW_BIN (see README) if MSYS2 lives somewhere else.
 
-[source.crates-io]
-replace-with = "rsproxy-sparse"
-
-[source.rsproxy-sparse]
-registry = "sparse+https://rsproxy.cn/index/"
-
-[net]
-git-fetch-with-cli = true
-
 [target.x86_64-pc-windows-gnu]
-linker = "C:/UserProgram/msys2/ucrt64/bin/gcc.exe"
-ar = "C:/UserProgram/msys2/ucrt64/bin/ar.exe"
+# Resolved from PATH. The local Windows build script and CI both put the
+# MSYS2 UCRT64 bin directory first, so the same config works on any machine.
+linker = "gcc"
+ar = "ar"
 rustflags = ["-C", "target-feature=+crt-static"]

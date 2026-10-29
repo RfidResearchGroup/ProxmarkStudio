@@ -2,8 +2,15 @@ html.frameless {
   --window-chrome: 38px;
 }
 
+/* Reserve the titlebar area with padding rather than a margin on .shell.  A
+   child margin collapses through <body>, which pushed the whole page down and
+   made every route scroll by exactly the titlebar height. */
+html.frameless body {
+  padding-top: var(--window-chrome);
+}
+
 html.frameless .shell {
-  margin-top: var(--window-chrome);
+  margin-top: 0;
   min-height: calc(100vh - var(--window-chrome));
   min-height: calc(100dvh - var(--window-chrome));
 }
@@ -31,6 +38,10 @@ html.frameless .toast-host {
 html.frameless:fullscreen .titlebar,
 html.frameless:fullscreen .resize-layer {
   display: none;
+}
+
+html.frameless:fullscreen body {
+  padding-top: 0;
 }
 
 html.frameless:fullscreen .shell {

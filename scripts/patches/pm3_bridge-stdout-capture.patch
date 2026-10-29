@@ -1,0 +1,126 @@
+diff --git a/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/shim/pm3_bridge.c b/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/shim/pm3_bridge.c
+index 8671ab8..50fb0cc 100644
+--- a/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/shim/pm3_bridge.c
++++ b/_temp/plugin-crate/tauri-plugin-proxmark3-0.2.1/shim/pm3_bridge.c
+@@ -13,6 +13,7 @@
+ #include <fcntl.h>
+ #include <io.h>
+ #else
++#include <fcntl.h>
+ #include <unistd.h>
+ #endif
+ 
+@@ -63,6 +64,77 @@ typedef struct {
+     FILE *file;
+ } pm3x_capture_t;
+ 
++// Stdout is not guaranteed to be associated with a descriptor in a GUI
++// process.  A Windows GUI binary started without a console can leave stdout
++// with `_fileno(stdout) == -1`, in which case dup2() has no target to install
++// the capture pipe on.  Giving stdout a valid null-device stream first makes
++// both the temporary-file and pipe capture paths work.
++static void pm3x_ensure_stdout(void) {
++#ifdef _WIN32
++    if (_fileno(stdout) < 0) {
++        (void)freopen("NUL", "w", stdout);
++    }
++#else
++    if (fileno(stdout) < 0) {
++        (void)freopen("/dev/null", "w", stdout);
++    }
++#endif
++}
++
++// Point fd 1 at the null device first and return a distinct descriptor that
++// can be used to restore the previous state afterwards.
++static int pm3x_save_stdout(void) {
++    pm3x_ensure_stdout();
++#ifdef _WIN32
++    int target = _fileno(stdout);
++    int saved = _dup(target);
++#else
++    int target = fileno(stdout);
++    int saved = dup(target);
++#endif
++    if (saved >= 0) {
++        return saved;
++    }
++
++#ifdef _WIN32
++    int fallback = _open("NUL", _O_WRONLY);
++#else
++    int fallback = open("/dev/null", O_WRONLY);
++#endif
++    if (fallback < 0) {
++        return -1;
++    }
++
++    // The null device may have taken the just-closed descriptor itself.  Move
++    // it aside so `saved` remains distinct from the descriptor being restored.
++    if (fallback == target) {
++#ifdef _WIN32
++        int moved = _dup(fallback);
++        _close(fallback);
++#else
++        int moved = dup(fallback);
++        close(fallback);
++#endif
++        fallback = moved;
++        if (fallback < 0) {
++            return -1;
++        }
++    }
++
++#ifdef _WIN32
++    if (_dup2(fallback, target) != 0) {
++        _close(fallback);
++        return -1;
++    }
++#else
++    if (dup2(fallback, target) < 0) {
++        close(fallback);
++        return -1;
++    }
++#endif
++    return fallback;
++}
++
+ static bool pm3x_capture_begin(pm3x_capture_t *capture) {
+     capture->saved_fd = -1;
+     capture->file = tmpfile();
+@@ -71,8 +143,8 @@ static bool pm3x_capture_begin(pm3x_capture_t *capture) {
+     }
+ 
+     fflush(stdout);
++    capture->saved_fd = pm3x_save_stdout();
+ #ifdef _WIN32
+-    capture->saved_fd = _dup(_fileno(stdout));
+     if (capture->saved_fd < 0 || _dup2(_fileno(capture->file), _fileno(stdout)) != 0) {
+         if (capture->saved_fd >= 0) {
+             _close(capture->saved_fd);
+@@ -81,7 +153,6 @@ static bool pm3x_capture_begin(pm3x_capture_t *capture) {
+         return false;
+     }
+ #else
+-    capture->saved_fd = dup(fileno(stdout));
+     if (capture->saved_fd < 0 || dup2(fileno(capture->file), fileno(stdout)) < 0) {
+         if (capture->saved_fd >= 0) {
+             close(capture->saved_fd);
+@@ -319,8 +390,8 @@ int pm3x_execute_stream(const char *command, pm3x_chunk_callback callback, void
+     }
+ 
+     fflush(stdout);
++    int saved = pm3x_save_stdout();
+ #ifdef _WIN32
+-    int saved = _dup(_fileno(stdout));
+     if (saved < 0 || _dup2(fds[1], _fileno(stdout)) != 0) {
+         if (saved >= 0) {
+             _close(saved);
+@@ -332,7 +403,6 @@ int pm3x_execute_stream(const char *command, pm3x_chunk_callback callback, void
+         return PM3X_E_INTERNAL;
+     }
+ #else
+-    int saved = dup(fileno(stdout));
+     if (saved < 0 || dup2(fds[1], fileno(stdout)) < 0) {
+         if (saved >= 0) {
+             close(saved);
