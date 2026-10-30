@@ -305,27 +305,127 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  ios:
+    name: iOS / arm64 (unsigned)
+    runs-on: macos-14
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Set up Proxmark3 plugin
+        shell: bash
+        run: bash scripts/setup-plugin.sh
+
+      - name: Build unsigned iOS app
+        shell: bash
+        env:
+          CI: true
+          CODE_SIGNING_ALLOWED: "NO"
+          CODE_SIGNING_REQUIRED: "NO"
+          CODE_SIGN_IDENTITY: ""
+        run: |
+          pnpm tauri ios init --ci
+          SIGN_ARG="--no-sign"
+          if ! pnpm tauri ios build --help 2>&1 | grep -q -- '--no-sign'; then
+            SIGN_ARG=""
+          fi
+          pnpm tauri ios build \
+            --debug \
+            --target aarch64 \
+            $SIGN_ARG \
+            --ci
+
+      - name: Package .app
+        shell: bash
+        run: |
+          APP="$(find src-tauri/gen/apple/build -type d -name '*.app' -print -quit)"
+          test -n "$APP"
+          echo "Packaging $APP"
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent "$APP" artifacts/ProxmarkStudio-ios-arm64.app.zip
+
+      - name: Upload iOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProxmarkStudio-ios-arm64
+          path: artifacts/ProxmarkStudio-ios-arm64.app.zip
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     name: Publish release assets
     if: github.event_name != 'pull_request'
     needs:
       - desktop
       - android
+      - ios
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
 
+      - name: Normalize asset names
+        shell: bash
+        run: |
+          VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          mkdir -p release-assets-normalized
+          shopt -s nullglob
+          for file in release-assets/*; do
+            base="$(basename "$file")"
+            case "$base" in
+              *x64*setup*.exe) out="ProxmarkStudio-${VERSION}-windows-x64-setup.exe" ;;
+              *x86*setup*.exe) out="ProxmarkStudio-${VERSION}-windows-x86-setup.exe" ;;
+              *windows*x64*portable*.zip) out="ProxmarkStudio-${VERSION}-windows-x64-portable.zip" ;;
+              *windows*x86*portable*.zip) out="ProxmarkStudio-${VERSION}-windows-x86-portable.zip" ;;
+              *macos*x64*.dmg) out="ProxmarkStudio-${VERSION}-macos-x64.dmg" ;;
+              *macos*arm64*.dmg) out="ProxmarkStudio-${VERSION}-macos-arm64.dmg" ;;
+              *.AppImage) out="ProxmarkStudio-${VERSION}-linux-x64.AppImage" ;;
+              *.deb) out="ProxmarkStudio-${VERSION}-linux-x64.deb" ;;
+              *android*universal*.apk) out="ProxmarkStudio-${VERSION}-android-universal.apk" ;;
+              *ios*arm64*.zip) out="ProxmarkStudio-${VERSION}-ios-arm64.app.zip" ;;
+              *) out="$base" ;;
+            esac
+            cp "$file" "release-assets-normalized/$out"
+          done
+          test "$(find release-assets-normalized -type f | wc -l)" -gt 0
+
       - name: Publish versioned release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release-assets/**/*
+          files: release-assets-normalized/**/*
           generate_release_notes: true
 
       - name: Publish rolling latest build
@@ -338,7 +438,22 @@ jobs:
           body: |
             Automated package built from `${{ github.sha }}` on `${{ github.ref_name }}`.
 
-            Includes Windows, macOS, Linux, and Android artifacts.
+            Includes Windows, macOS, Linux, Android, and unsigned iOS artifacts.
           prerelease: true
           make_latest: false
-          files: release-assets/**/*
+          files: release-assets-normalized/**/*
+
+      - name: Remove stale rolling assets
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          gh release view latest --json assets --jq '.assets[].name' |
+            while IFS= read -r asset; do
+              case "$asset" in
+                "ProxmarkStudio-${VERSION}-"*) ;;
+                *) gh release delete-asset latest "$asset" --yes ;;
+              esac
+            done
