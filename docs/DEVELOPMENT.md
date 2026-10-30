@@ -180,7 +180,8 @@ packages:
 | macOS Apple Silicon | `macos-14` | `.dmg` |
 | Linux x64 | `ubuntu-22.04` | AppImage + Debian package |
 | Android universal | `ubuntu-latest` | APK containing arm64-v8a, armeabi-v7a, x86 and x86_64 |
-| iOS arm64 | `macos-14` | unsigned `.app` ZIP |
+| Android arm64 | `ubuntu-latest` | smaller arm64-v8a-only APK |
+| iOS arm64 | `macos-15` | unsigned `.app` ZIP |
 
 The workflow runs on every push to `main`, pull requests, and manual dispatch.
 Successful `main` builds update the rolling **Latest development build**
@@ -201,6 +202,7 @@ ProxmarkStudio-0.1.0-windows-x86-portable.zip
 ProxmarkStudio-0.1.0-linux-x64.AppImage
 ProxmarkStudio-0.1.0-macos-arm64.dmg
 ProxmarkStudio-0.1.0-android-universal.apk
+ProxmarkStudio-0.1.0-android-arm64.apk
 ProxmarkStudio-0.1.0-ios-arm64.app.zip
 ```
 

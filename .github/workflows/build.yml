@@ -278,6 +278,7 @@ jobs:
       - name: Build APK
         shell: bash
         run: |
+          mkdir -p artifacts
           for target in aarch64 armv7 i686 x86_64; do
             pnpm tauri android build \
               --debug \
@@ -285,6 +286,10 @@ jobs:
               --target "$target" \
               --ci \
               --ignore-version-mismatches
+            if [ "$target" = "aarch64" ]; then
+              cp src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk \
+                artifacts/ProxmarkStudio-android-arm64-debug.apk
+            fi
           done
           cd src-tauri/gen/android
           ./gradlew :app:packageUniversalDebug -x rustBuildUniversalDebug --no-daemon
@@ -295,13 +300,16 @@ jobs:
           mkdir -p artifacts
           APK="src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
           test -f "$APK"
+          test -f artifacts/ProxmarkStudio-android-arm64-debug.apk
           cp "$APK" artifacts/ProxmarkStudio-android-universal-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ProxmarkStudio-android-universal
-          path: artifacts/ProxmarkStudio-android-universal-debug.apk
+          path: |
+            artifacts/ProxmarkStudio-android-universal-debug.apk
+            artifacts/ProxmarkStudio-android-arm64-debug.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -434,6 +442,7 @@ jobs:
               *.AppImage) out="ProxmarkStudio-${VERSION}-linux-x64.AppImage" ;;
               *.deb) out="ProxmarkStudio-${VERSION}-linux-x64.deb" ;;
               *android*universal*.apk) out="ProxmarkStudio-${VERSION}-android-universal.apk" ;;
+              *android*arm64*.apk) out="ProxmarkStudio-${VERSION}-android-arm64.apk" ;;
               *ios*arm64*.zip) out="ProxmarkStudio-${VERSION}-ios-arm64.app.zip" ;;
               *) out="$base" ;;
             esac

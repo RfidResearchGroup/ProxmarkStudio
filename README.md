@@ -146,6 +146,7 @@ ProxmarkStudio-0.1.0-windows-x86-portable.zip
 ProxmarkStudio-0.1.0-linux-x64.AppImage
 ProxmarkStudio-0.1.0-macos-arm64.dmg
 ProxmarkStudio-0.1.0-android-universal.apk
+ProxmarkStudio-0.1.0-android-arm64.apk
 ProxmarkStudio-0.1.0-ios-arm64.app.zip
 ```
 
