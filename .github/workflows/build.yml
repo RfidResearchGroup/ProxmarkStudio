@@ -32,11 +32,49 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-gnu
             toolchain: stable-x86_64-pc-windows-gnu
+            msystem: UCRT64
+            host_bin: ucrt64\bin
+            target_bin: ucrt64\bin
+            plugin_bin: ucrt64\bin
+            msys_packages: >-
+              mingw-w64-ucrt-x86_64-bzip2
+              mingw-w64-ucrt-x86_64-cmake
+              mingw-w64-ucrt-x86_64-gcc
+              mingw-w64-ucrt-x86_64-lz4
+              mingw-w64-ucrt-x86_64-ninja
+              mingw-w64-ucrt-x86_64-pkgconf
+              mingw-w64-ucrt-x86_64-zlib
+              make
+              tar
             bundles: nsis
             artifact: ProxmarkStudio-windows-x64
             paths: |
               src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/*.exe
               src-tauri/target/x86_64-pc-windows-gnu/release/ProxmarkStudio-windows-x64-portable.zip
+          - name: windows-x86
+            os: windows-latest
+            target: i686-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
+            msystem: UCRT64
+            host_bin: ucrt64\bin
+            target_bin: mingw32\bin
+            plugin_bin: mingw32\bin
+            msys_packages: >-
+              mingw-w64-ucrt-x86_64-cmake
+              mingw-w64-ucrt-x86_64-gcc
+              mingw-w64-ucrt-x86_64-ninja
+              mingw-w64-ucrt-x86_64-pkgconf
+              mingw-w64-i686-bzip2
+              mingw-w64-i686-gcc
+              mingw-w64-i686-lz4
+              mingw-w64-i686-zlib
+              make
+              tar
+            bundles: nsis
+            artifact: ProxmarkStudio-windows-x86
+            paths: |
+              src-tauri/target/i686-pc-windows-gnu/release/bundle/nsis/*.exe
+              src-tauri/target/i686-pc-windows-gnu/release/ProxmarkStudio-windows-x86-portable.zip
           - name: macos-x64
             os: macos-15-intel
             target: x86_64-apple-darwin
@@ -108,36 +146,28 @@ jobs:
             pkg-config \
             zlib1g-dev
 
-      - name: Set up MSYS2 UCRT64
+      - name: Set up MSYS2 toolchain
         if: runner.os == 'Windows'
         id: msys2
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: ${{ matrix.msystem }}
           update: false
-          install: >-
-            mingw-w64-ucrt-x86_64-bzip2
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-lz4
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-zlib
-            make
-            tar
+          install: ${{ matrix.msys_packages }}
 
       - name: Put MSYS2 on PATH
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          "${{ steps.msys2.outputs['msys2-location'] }}\ucrt64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.host_bin }}" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.target_bin }}" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           "${{ steps.msys2.outputs['msys2-location'] }}\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Set up Proxmark3 plugin (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          PM3X_MINGW_BIN: ${{ steps.msys2.outputs['msys2-location'] }}\ucrt64\bin
+          PM3X_MINGW_BIN: ${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.plugin_bin }}
         run: ./scripts/setup-plugin.ps1
 
       - name: Set up Proxmark3 plugin (Unix)
@@ -149,7 +179,7 @@ jobs:
         shell: bash
         env:
           RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
-          PM3X_MINGW_BIN: ${{ steps.msys2.outputs['msys2-location'] }}\ucrt64\bin
+          PM3X_MINGW_BIN: ${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.plugin_bin }}
         run: |
           pnpm tauri build \
             --target "${{ matrix.target }}" \
@@ -178,10 +208,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $release = "src-tauri/target/x86_64-pc-windows-gnu/release"
+          $release = "src-tauri/target/${{ matrix.target }}/release"
           Compress-Archive -Force `
             -Path "$release/proxmark-studio.exe", "$release/WebView2Loader.dll" `
-            -DestinationPath "$release/ProxmarkStudio-windows-x64-portable.zip"
+            -DestinationPath "$release/ProxmarkStudio-${{ matrix.name }}-portable.zip"
 
       - name: Upload package
         uses: actions/upload-artifact@v4

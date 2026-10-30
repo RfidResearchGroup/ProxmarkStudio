@@ -1,10 +1,17 @@
 # Windows GNU target configuration. The embedded Proxmark3 client only builds
-# with the GNU ABI, so the Windows build always targets x86_64-pc-windows-gnu.
-# Set PM3X_MINGW_BIN (see README) if MSYS2 lives somewhere else.
+# with the GNU ABI, so the Windows builds use the GNU targets. Set
+# PM3X_MINGW_BIN (see README) if MSYS2 lives somewhere else.
 
 [target.x86_64-pc-windows-gnu]
 # Resolved from PATH. The local Windows build script and CI both put the
 # MSYS2 UCRT64 bin directory first, so the same config works on any machine.
 linker = "gcc"
 ar = "ar"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-gnu]
+# Host build scripts still use the 64-bit UCRT64 compiler; only the target
+# links with the 32-bit MinGW toolchain.
+linker = "i686-w64-mingw32-gcc"
+ar = "i686-w64-mingw32-ar"
 rustflags = ["-C", "target-feature=+crt-static"]

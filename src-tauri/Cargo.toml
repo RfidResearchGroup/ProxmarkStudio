@@ -20,7 +20,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-share = "2.0.5"
 tauri-plugin-blec = "0.18.0"
-tauri-plugin-proxmark3 = { path = "../_temp/plugin-crate/tauri-plugin-proxmark3-0.2.4" }
+tauri-plugin-proxmark3 = { path = "../_temp/plugin-crate/tauri-plugin-proxmark3-0.2.5" }
 tauri-plugin-transport = { path = "../plugins/tauri-plugin-transport" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
