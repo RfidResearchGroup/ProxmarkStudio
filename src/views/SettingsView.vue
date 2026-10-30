@@ -469,7 +469,7 @@ onMounted(async () => {
             </div>
             <div class="about-rows">
               <div><span>{{ settings.t('settings.appVersion') }}</span><strong class="mono">{{ platform.info.version }}</strong></div>
-              <div><span>{{ settings.t('settings.pluginVersion') }}</span><strong class="mono">0.2.1</strong></div>
+              <div><span>{{ settings.t('settings.pluginVersion') }}</span><strong class="mono">0.2.6</strong></div>
               <div><span>{{ settings.t('settings.platform') }}</span><strong>{{ platform.osLabel }} · {{ platform.info.arch }}</strong></div>
               <div><span>{{ settings.t('settings.build') }}</span><strong class="mono">Tauri {{ platform.info.tauriVersion }}</strong></div>
               <div><span>{{ settings.t('settings.license') }}</span><strong class="mono">{{ settings.t('settings.licenseValue') }}</strong></div>

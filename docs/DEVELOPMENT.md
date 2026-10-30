@@ -189,26 +189,41 @@ prerelease using debug binaries, while pushing a `v*` tag publishes a versioned
 GitHub release built with optimized release profiles. Builds are also available
 as workflow artifacts for 14 days.
 
+### Versioning
+
+[`scripts/version.mjs`](../scripts/version.mjs) is the single source of truth:
+
+| Build | Version |
+| --- | --- |
+| `v*` tag | the tag without `v`, e.g. `v0.2.1` → `0.2.1` |
+| `main` / Latest development | the newest reachable `v*` tag; `0.0.0` if none exist |
+| Local developer build | `0.0.0-local` |
+
+CI injects the computed version into the Tauri config at build time. Local
+builds use the fixed `0.0.0-local` value committed in
+[`src-tauri/tauri.conf.json`](../src-tauri/tauri.conf.json). Set
+`PROXMARK_STUDIO_VERSION` to override the local default deliberately.
+
 ### Creating a release
 
-1. Update the application version in
-   [`src-tauri/tauri.conf.json`](../src-tauri/tauri.conf.json). Keep
-   `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` in sync when the Rust
-   package version matters.
-2. Commit the version change.
-3. Create and push an annotated tag whose version matches the config:
+1. Make sure the release content is merged and the working tree is clean.
+2. Create and push an annotated tag whose name is the release version:
 
    ```bash
    git tag -a v0.1.0 -m "Proxmark Studio 0.1.0"
    git push origin v0.1.0
    ```
 
-4. The `v*` tag run builds **release** artifacts:
+3. The `v*` tag run builds **release** artifacts:
    - desktop `tauri build` release binaries
    - Android release libraries and release APKs
    - iOS release `.app` without signing
-   - canonical release asset names
-5. Verify the GitHub Actions run and the published release assets.
+   - canonical release asset names, using the tag version
+4. Verify the GitHub Actions run and the published release assets.
+
+The tag version is the application version; there is no separate version field
+to keep in sync. Latest development builds use the newest tag as their base
+version so they remain comparable with the next release.
 
 Android release APKs are currently signed with the standard Android debug key
 so CI artifacts remain installable without repository secrets. Replace this

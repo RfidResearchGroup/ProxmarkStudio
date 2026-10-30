@@ -1,7 +1,7 @@
 {
   "name": "proxmark-studio",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0-local",
   "type": "module",
   "description": "A cross-platform Proxmark3 workbench built with Tauri 2 and Vue 3",
   "license": "GPL-3.0-or-later",

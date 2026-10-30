@@ -1,6 +1,6 @@
 [package]
 name = "proxmark-studio"
-version = "0.1.0"
+version = "0.0.0-local"
 description = "A cross-platform Proxmark3 workbench"
 authors = ["ForestWeave"]
 license = "GPL-3.0-or-later"

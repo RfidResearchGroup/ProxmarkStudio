@@ -151,8 +151,9 @@ ProxmarkStudio-0.1.0-ios-arm64.app.zip
 ```
 
 The iOS artifact is an unsigned `.app` bundle archive for external signing.
-Pushes to `main` publish debug builds to the rolling latest prerelease; pushing
-a `v*` tag publishes optimized release builds with the same canonical names.
+Pushes to `main` publish debug builds to the rolling latest prerelease using the
+newest tag version; pushing a `v*` tag publishes optimized release builds with
+the tag version. Local builds use the fixed version `0.0.0-local`.
 
 ## Development
 

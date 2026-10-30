@@ -188,7 +188,7 @@ export async function mockGetPlatformInfo(): Promise<PlatformInfo> {
     os: 'windows',
     arch: 'x86_64',
     family: 'desktop',
-    version: '0.1.0',
+    version: '0.0.0-local',
     tauriVersion: '2.12.4',
     capabilities: {
       usbSerial: true,

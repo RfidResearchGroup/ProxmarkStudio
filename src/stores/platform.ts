@@ -7,7 +7,7 @@ export const usePlatformStore = defineStore('platform', {
       os: 'web',
       arch: 'unknown',
       family: 'desktop',
-      version: '0.1.0',
+      version: '0.0.0-local',
       tauriVersion: '2',
       capabilities: {
         usbSerial: false,

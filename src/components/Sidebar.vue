@@ -47,7 +47,7 @@ const statusClass = computed(() => {
   return 'idle'
 })
 
-const version = '0.1.0'
+const version = computed(() => platform.info.version || '0.0.0-local')
 
 const themes: ThemeName[] = ['abyss', 'midnight', 'carbon', 'nebula']
 
