@@ -683,7 +683,12 @@ onUnmounted(() => {
               <span class="connected-strip__label">{{ settings.t('home.port') }}</span>
               <span class="connected-strip__value mono">{{ connection.portLabel }}</span>
               <span class="connected-strip__meta">
-                {{ settings.t(connection.transportKey) }} · {{ settings.t('home.uptime', { time: uptime }) }}
+                {{ settings.t(connection.transportKey) }} ·
+                {{
+                  uptime
+                    ? settings.t('home.uptime', { time: uptime })
+                    : settings.t('common.connected')
+                }}
               </span>
             </div>
             <div class="connected-strip__actions">
@@ -713,7 +718,15 @@ onUnmounted(() => {
             {{ settings.t('home.deviceDetails') }}
           </div>
           <div class="session-detail__actions">
-            <span v-if="connection.device?.target" class="badge badge--accent">{{ connection.device.target }}</span>
+            <button
+              v-if="connection.device?.raw"
+              class="btn btn--ghost btn--sm raw-action"
+              :title="settings.t('home.rawOutput')"
+              @click="rawOpen = true"
+            >
+              <FileText :size="13" />
+              RAW
+            </button>
             <button
               class="btn btn--ghost btn--sm"
               :disabled="connection.probing"
@@ -753,16 +766,6 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-
-        <button
-          v-if="connection.device?.raw"
-          class="raw-trigger"
-          @click="rawOpen = true"
-        >
-          <FileText :size="14" />
-          <span>{{ settings.t('home.rawOutput') }}</span>
-          <ArrowRight :size="14" />
-        </button>
 
         <Modal
           :open="rawOpen"
@@ -834,7 +837,16 @@ onUnmounted(() => {
 
 .hero--connected {
   grid-template-columns: 1fr;
+  flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.hero--connected .hero__content {
+  padding-bottom: 16px;
 }
 
 .hero--connected .hero__visual {
@@ -1682,30 +1694,10 @@ onUnmounted(() => {
   font-size: 11.5px;
 }
 
-.raw-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 2px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 11.5px;
-  text-align: left;
-}
-
-.raw-trigger:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--panel-hover);
-}
-
-.raw-trigger svg:last-child {
-  margin-left: auto;
-  color: var(--faint);
+.raw-action {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
 }
 
 .hero__visual {
@@ -2143,7 +2135,7 @@ onUnmounted(() => {
 
 @media (max-width: 640px) {
   .home {
-    padding-bottom: 92px;
+    padding-bottom: calc(var(--tabbar-height) + 8px + env(safe-area-inset-bottom));
   }
 
   .hero {
@@ -2251,7 +2243,7 @@ onUnmounted(() => {
   .home {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - var(--header-height) - env(safe-area-inset-top));
+    height: calc(100dvh - var(--header-height) - 38px - env(safe-area-inset-top));
     min-height: 0;
     overflow: hidden;
   }
