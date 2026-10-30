@@ -8,8 +8,8 @@ import {
   Cable,
   Check,
   ChevronDown,
-  ChevronRight,
   Cpu,
+  FileText,
   Info,
   PlugZap,
   Radio,
@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import DeviceVisual from '@/components/DeviceVisual.vue'
+import Modal from '@/components/Modal.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useConnectionStore } from '@/stores/connection'
 import { usePlatformStore } from '@/stores/platform'
@@ -69,6 +70,7 @@ const scanning = ref(false)
 const scanned = ref(false)
 const refreshing = ref(false)
 const advancedOpen = ref(false)
+const rawOpen = ref(false)
 const useCustomUart = ref(false)
 const now = ref(Date.now())
 
@@ -752,13 +754,24 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <details v-if="connection.device?.raw" class="raw-details raw-details--wide">
-          <summary>
-            <span>{{ settings.t('home.rawOutput') }}</span>
-            <ChevronRight :size="14" />
-          </summary>
-          <pre class="raw-output">{{ connection.device.raw }}</pre>
-        </details>
+        <button
+          v-if="connection.device?.raw"
+          class="raw-trigger"
+          @click="rawOpen = true"
+        >
+          <FileText :size="14" />
+          <span>{{ settings.t('home.rawOutput') }}</span>
+          <ArrowRight :size="14" />
+        </button>
+
+        <Modal
+          :open="rawOpen"
+          :title="settings.t('home.rawOutput')"
+          wide
+          @close="rawOpen = false"
+        >
+          <pre class="raw-output raw-output--modal">{{ connection.device?.raw }}</pre>
+        </Modal>
       </div>
     </section>
   </div>
@@ -1593,19 +1606,21 @@ onUnmounted(() => {
 }
 
 .session-detail__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 
 .session-detail__title {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 8px;
   font-size: 12px;
   font-weight: 620;
   color: var(--text-soft);
+  white-space: nowrap;
 }
 
 .session-detail__title svg {
@@ -1615,6 +1630,9 @@ onUnmounted(() => {
 .session-detail__actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 8px;
 }
 
@@ -1664,13 +1682,30 @@ onUnmounted(() => {
   font-size: 11.5px;
 }
 
-.raw-details--wide {
-  margin-top: 0;
-  padding-top: 12px;
+.raw-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
 }
 
-.raw-details--wide .raw-output {
-  max-height: 280px;
+.raw-trigger:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--panel-hover);
+}
+
+.raw-trigger svg:last-child {
+  margin-left: auto;
+  color: var(--faint);
 }
 
 .hero__visual {
@@ -1740,34 +1775,6 @@ onUnmounted(() => {
   padding: 8px 0;
 }
 
-.raw-details {
-  margin-top: 10px;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-}
-
-.raw-details summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  list-style: none;
-  font-size: 11px;
-  color: var(--faint);
-}
-
-.raw-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.raw-details[open] summary svg {
-  transform: rotate(90deg);
-}
-
-.raw-details summary svg {
-  transition: transform var(--transition);
-}
-
 .raw-output {
   max-height: 240px;
   margin: 10px 0 0;
@@ -1782,6 +1789,13 @@ onUnmounted(() => {
   color: var(--muted);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.raw-output--modal {
+  max-height: min(68vh, 720px);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .info-skeleton {
@@ -2197,13 +2211,12 @@ onUnmounted(() => {
 
   .session-detail__head {
     align-items: center;
-    flex-direction: row;
     gap: 8px;
   }
 
   .session-detail__actions {
     width: auto;
-    margin-left: auto;
+    margin-left: 0;
     justify-content: flex-end;
   }
 
