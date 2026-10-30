@@ -307,7 +307,7 @@ jobs:
 
   ios:
     name: iOS / arm64 (unsigned)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Check out
         uses: actions/checkout@v4
