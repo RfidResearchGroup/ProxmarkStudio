@@ -38,6 +38,10 @@ android {
             isMinifyEnabled = false
         }
         getByName("release") {
+            // The CI release artifacts are optimized release builds. Until a
+            // production keystore is configured, sign them with the standard
+            // Android debug key so they remain installable.
+            signingConfig = signingConfigs.getByName("debug")
             optimization {
                enable = true
             }

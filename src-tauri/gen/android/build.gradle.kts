@@ -16,6 +16,12 @@ allprojects {
     }
 }
 
+subprojects {
+    afterEvaluate {
+        extensions.findByType<com.android.build.gradle.LibraryExtension>()?.compileSdk = 36
+    }
+}
+
 tasks.register("clean").configure {
     delete("build")
 }

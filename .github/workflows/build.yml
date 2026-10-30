@@ -278,38 +278,50 @@ jobs:
       - name: Build APK
         shell: bash
         run: |
+          PROFILE=debug
+          MODE=--debug
+          PACKAGE_TASK=packageUniversalDebug
+          RUST_TASK=rustBuildUniversalDebug
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            PROFILE=release
+            MODE=""
+            PACKAGE_TASK=packageUniversalRelease
+            RUST_TASK=rustBuildUniversalRelease
+          fi
           mkdir -p artifacts
           for target in aarch64 armv7 i686 x86_64; do
             pnpm tauri android build \
-              --debug \
+              $MODE \
               --apk \
               --target "$target" \
               --ci \
               --ignore-version-mismatches
             if [ "$target" = "aarch64" ]; then
-              cp src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk \
-                artifacts/ProxmarkStudio-android-arm64-debug.apk
+              cp "src-tauri/gen/android/app/build/outputs/apk/universal/$PROFILE/app-universal-$PROFILE.apk" \
+                artifacts/ProxmarkStudio-android-arm64.apk
             fi
           done
           cd src-tauri/gen/android
-          ./gradlew :app:packageUniversalDebug -x rustBuildUniversalDebug --no-daemon
+          ./gradlew ":app:$PACKAGE_TASK" -x "$RUST_TASK" --no-daemon
 
       - name: Collect APK
         shell: bash
         run: |
+          PROFILE=debug
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then PROFILE=release; fi
           mkdir -p artifacts
-          APK="src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
+          APK="src-tauri/gen/android/app/build/outputs/apk/universal/$PROFILE/app-universal-$PROFILE.apk"
           test -f "$APK"
-          test -f artifacts/ProxmarkStudio-android-arm64-debug.apk
-          cp "$APK" artifacts/ProxmarkStudio-android-universal-debug.apk
+          test -f artifacts/ProxmarkStudio-android-arm64.apk
+          cp "$APK" artifacts/ProxmarkStudio-android-universal.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ProxmarkStudio-android-universal
           path: |
-            artifacts/ProxmarkStudio-android-universal-debug.apk
-            artifacts/ProxmarkStudio-android-arm64-debug.apk
+            artifacts/ProxmarkStudio-android-universal.apk
+            artifacts/ProxmarkStudio-android-arm64.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -381,8 +393,10 @@ jobs:
           if ! pnpm tauri ios build --help 2>&1 | grep -q -- '--no-sign'; then
             SIGN_ARG=""
           fi
+          MODE=--debug
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then MODE=""; fi
           pnpm tauri ios build \
-            --debug \
+            $MODE \
             --target aarch64 \
             $SIGN_ARG \
             --ci

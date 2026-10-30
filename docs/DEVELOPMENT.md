@@ -185,10 +185,37 @@ packages:
 
 The workflow runs on every push to `main`, pull requests, and manual dispatch.
 Successful `main` builds update the rolling **Latest development build**
-prerelease, while pushing a `v*` tag publishes a versioned GitHub release with
-the same packages. Builds are also available as workflow artifacts for 14 days.
+prerelease using debug binaries, while pushing a `v*` tag publishes a versioned
+GitHub release built with optimized release profiles. Builds are also available
+as workflow artifacts for 14 days.
 
-Release asset names follow this format:
+### Creating a release
+
+1. Update the application version in
+   [`src-tauri/tauri.conf.json`](../src-tauri/tauri.conf.json). Keep
+   `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` in sync when the Rust
+   package version matters.
+2. Commit the version change.
+3. Create and push an annotated tag whose version matches the config:
+
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+
+4. The `v*` tag run builds **release** artifacts:
+   - desktop `tauri build` release binaries
+   - Android release libraries and release APKs
+   - iOS release `.app` without signing
+   - canonical release asset names
+5. Verify the GitHub Actions run and the published release assets.
+
+Android release APKs are currently signed with the standard Android debug key
+so CI artifacts remain installable without repository secrets. Replace this
+with a production keystore before distributing outside the project; the
+optimized release build itself is unchanged.
+
+Asset names follow this format:
 
 ```text
 ProxmarkStudio-<version>-<platform>-<arch>-<kind>
