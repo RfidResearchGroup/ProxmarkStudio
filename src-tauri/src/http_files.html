@@ -49,6 +49,17 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
 .dialog-backdrop{position:fixed;inset:0;background:rgba(2,6,12,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}
 .dialog{width:min(420px,100%);padding:18px;border:1px solid var(--line);border-radius:14px;background:#0c1726;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .dialog h2{margin:0 0 8px;font-size:16px}.dialog p{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.55}.dialog input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:#07111d;color:var(--text);font:inherit}.dialog__foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.dialog__foot button{padding:7px 12px;border:1px solid var(--line);border-radius:7px;background:#101c2d;color:var(--text)}.dialog__foot .primary{border-color:var(--accent);background:var(--accent);color:#041410;font-weight:700}.dialog__foot .danger{border-color:#ff6b81;color:#ffb3be}
+.upload-dialog{position:relative;width:min(460px,100%)}
+#uploadBackdrop{z-index:55}
+.upload-minimize{position:absolute;right:12px;top:10px;width:28px;height:28px;border:1px solid var(--line);border-radius:6px;background:#101c2d;color:var(--muted);font-size:18px;line-height:1}
+.upload-minimize:hover{border-color:var(--accent);color:var(--accent)}
+.upload-file{margin:12px 0 8px;color:var(--text);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upload-bar{height:8px;overflow:hidden;border-radius:5px;background:#07111d;border:1px solid var(--line)}
+.upload-bar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .15s linear}
+.upload-meta{display:flex;justify-content:space-between;margin-top:6px;color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.upload-error{margin-top:8px;color:#ffb3be;font-size:11.5px}
+.upload-pill{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:55;display:none;align-items:center;gap:7px;max-width:min(260px,55vw);padding:7px 10px;border:1px solid var(--accent);border-radius:8px;background:#0d2928;color:var(--accent);font-size:11.5px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.upload-pill .mini-bar{width:34px;height:4px;overflow:hidden;border-radius:3px;background:#07111d}.upload-pill .mini-bar>i{display:block;height:100%;background:var(--accent)}
 .move-dialog{width:min(560px,100%)}
 .move-crumbs{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin:10px 0;padding:6px;border:1px solid var(--line);border-radius:8px;background:#07111d;font-size:12px}
 .move-crumbs button{border:0;background:none;color:var(--muted);padding:3px 5px;border-radius:4px}.move-crumbs button:hover{background:#17273b;color:var(--text)}.move-crumbs .current{color:var(--accent)}
@@ -99,6 +110,21 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     </div>
   </div>
 </div>
+<div class="dialog-backdrop" id="uploadBackdrop">
+  <div class="dialog upload-dialog" role="dialog" aria-modal="true">
+    <button class="upload-minimize" id="uploadMinimize" title="Minimize">−</button>
+    <h2 id="uploadTitle"></h2>
+    <div class="upload-file" id="uploadFile"></div>
+    <div class="upload-bar"><span id="uploadBar"></span></div>
+    <div class="upload-meta"><span id="uploadPercent">0%</span><span id="uploadCount"></span></div>
+    <div class="upload-error" id="uploadError"></div>
+    <div class="dialog__foot">
+      <button id="uploadAction"></button>
+      <button id="uploadClose" class="primary"></button>
+    </div>
+  </div>
+</div>
+<button class="upload-pill" id="uploadPill"><span id="uploadPillText"></span><span class="mini-bar"><i id="uploadMiniBar"></i></span></button>
 <div class="toast" id="toast"></div>
 <div class="drop-hint" id="dropHint"></div>
 <input id="fileInput" type="file" multiple hidden>
@@ -117,7 +143,8 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       overwrite: 'Some files already exist. Overwrite them?', folder: 'Folder', noAccess: 'Not available',
       layoutGrid: 'Switch to grid layout', layoutList: 'Switch to list layout', copied: 'Copied', up: 'Up one level',
       cancel: 'Cancel', confirm: 'Confirm', deleteTitle: 'Delete', renameTitle: 'Rename', moveTitle: 'Move', newFolderTitle: 'New folder', uploadTitle: 'Upload', moveHere: 'Move here',
-      noFolders: 'No subfolders here', moveBlocked: 'A folder cannot be moved inside itself or one of its subfolders.', moving: 'Moving…', moved: 'Moved {count} item(s)'
+      noFolders: 'No subfolders here', moveBlocked: 'A folder cannot be moved inside itself or one of its subfolders.', moving: 'Moving…', moved: 'Moved {count} item(s)',
+      uploading: 'Uploading files', uploadFileCount: 'File {current} of {total}', uploadComplete: 'Upload complete', uploadClose: 'Close', minimize: 'Minimize', uploadFailedTitle: 'Upload failed'
     },
     zh: {
       documentTitle: 'Proxmark Studio · 工作区', workspace: '工作区', upload: '上传', newFolder: '新建文件夹',
@@ -131,7 +158,8 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       overwrite: '部分文件已存在，是否覆盖？', folder: '文件夹', noAccess: '不可用',
       layoutGrid: '切换为网格排版', layoutList: '切换为列表排版', copied: '已复制', up: '返回上一级',
       cancel: '取消', confirm: '确定', deleteTitle: '删除', renameTitle: '重命名', moveTitle: '移动', newFolderTitle: '新建文件夹', uploadTitle: '上传', moveHere: '移动到这里',
-      noFolders: '这里没有子文件夹', moveBlocked: '不能把文件夹移动到自身或其子文件夹中。', moving: '移动中……', moved: '已移动 {count} 项'
+      noFolders: '这里没有子文件夹', moveBlocked: '不能把文件夹移动到自身或其子文件夹中。', moving: '移动中……', moved: '已移动 {count} 项',
+      uploading: '正在上传文件', uploadFileCount: '第 {current} / {total} 个文件', uploadComplete: '上传完成', uploadClose: '关闭', minimize: '最小化', uploadFailedTitle: '上传失败'
     }
   };
   const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name', context: null, dragPath: '', moveSource: '' };
@@ -346,38 +374,99 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     const res = await api('/api/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parent: state.path, name }) });
     const data = await res.json(); if (!res.ok) return toast(data.error || t('uploadFailed'), true); await load();
   }
-  let uploadBusy = false;
+  const uploadState = { open: false, minimized: false, busy: false, total: 0, index: 0, file: '', loaded: 0, uploadedBytes: 0, totalBytes: 0, error: '', done: 0 };
+  function uploadPercent() {
+    if (uploadState.totalBytes > 0) return Math.min(100, Math.round(((uploadState.uploadedBytes + uploadState.loaded) / uploadState.totalBytes) * 100));
+    return uploadState.total ? Math.min(100, Math.round((uploadState.done / uploadState.total) * 100)) : 0;
+  }
+  function renderUpload() {
+    const percent = uploadState.busy ? uploadPercent() : uploadState.error ? uploadPercent() : 100;
+    $('uploadTitle').textContent = uploadState.busy ? t('uploading') : uploadState.error ? t('uploadFailedTitle') : t('uploadComplete');
+    $('uploadFile').textContent = uploadState.busy ? uploadState.file : uploadState.error;
+    $('uploadPercent').textContent = percent + '%';
+    $('uploadCount').textContent = uploadState.busy ? t('uploadFileCount', { current: uploadState.index, total: uploadState.total }) : '';
+    $('uploadBar').style.width = percent + '%';
+    $('uploadError').textContent = uploadState.error;
+    $('uploadAction').textContent = uploadState.busy ? t('minimize') : t('uploadClose');
+    $('uploadAction').style.display = uploadState.busy ? 'inline-block' : 'none';
+    $('uploadClose').textContent = t('uploadClose');
+    $('uploadClose').style.display = uploadState.busy ? 'none' : 'inline-block';
+    $('uploadMinimize').style.display = uploadState.busy ? 'block' : 'none';
+    $('uploadBackdrop').style.display = uploadState.open ? 'flex' : 'none';
+    $('uploadPill').style.display = uploadState.busy && !uploadState.open ? 'flex' : 'none';
+    $('uploadPillText').textContent = t('uploading') + ' · ' + percent + '%';
+    $('uploadMiniBar').style.width = percent + '%';
+  }
+  function minimizeUpload() {
+    if (!uploadState.busy) return;
+    uploadState.open = false; uploadState.minimized = true; renderUpload();
+  }
+  function restoreUpload() {
+    uploadState.open = true; uploadState.minimized = false; renderUpload();
+  }
+  function closeUpload() {
+    if (uploadState.busy) return minimizeUpload();
+    uploadState.open = false; renderUpload();
+  }
+  function uploadRequest(file, allowOverwrite, target) {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload?path=' + encodeURIComponent(target) + '&overwrite=' + (allowOverwrite ? '1' : '0') + '&token=' + encodeURIComponent(token));
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        uploadState.loaded = event.loaded;
+        renderUpload();
+      };
+      xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+      xhr.onerror = () => resolve({ status: 0, text: '' });
+      const form = new FormData(); form.append('files', file, file.name);
+      xhr.send(form);
+    });
+  }
   async function upload(files, overwrite = false, target = state.path) {
-    if (!files.length || uploadBusy) return;
-    uploadBusy = true;
+    if (!files.length || uploadState.busy) return;
+    uploadState.busy = true; uploadState.open = true; uploadState.minimized = false;
+    uploadState.total = files.length; uploadState.index = 0; uploadState.file = '';
+    uploadState.loaded = 0; uploadState.uploadedBytes = 0;
+    uploadState.totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    uploadState.error = ''; uploadState.done = 0;
+    renderUpload();
     let overwriteAll = overwrite;
-    let uploaded = 0;
-    const send = async (file, allowOverwrite) => {
-      const form = new FormData();
-      form.append('files', file, file.name);
-      return api('/api/upload?path=' + encodeURIComponent(target) + '&overwrite=' + (allowOverwrite ? '1' : '0'), { method: 'POST', body: form });
-    };
     try {
-      for (const file of files) {
-        let res = await send(file, overwriteAll);
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        uploadState.index = index + 1; uploadState.file = file.name; uploadState.loaded = 0; renderUpload();
+        let res = await uploadRequest(file, overwriteAll, target);
         if (res.status === 409 && !overwriteAll) {
           if (await askConfirm(t('uploadTitle'), t('overwrite'))) {
             overwriteAll = true;
-            res = await send(file, true);
+            res = await uploadRequest(file, true, target);
           } else {
+            uploadState.uploadedBytes += file.size || 0;
             continue;
           }
         }
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) { toast(data.error || t('uploadFailed'), true); break; }
-        uploaded++;
+        if (!res.status || res.status >= 400) {
+          let message = t('uploadFailed');
+          try { message = JSON.parse(res.text).error || message; } catch {}
+          uploadState.error = message;
+          break;
+        }
+        uploadState.done++;
+        uploadState.uploadedBytes += file.size || 0;
+        uploadState.loaded = 0;
+        renderUpload();
       }
-      if (uploaded) toast(t('uploaded'));
+      if (!uploadState.error) {
+        uploadState.file = '';
+      }
       await load();
     } catch (error) {
-      toast(String(error || t('uploadFailed')), true);
+      uploadState.error = String(error || t('uploadFailed'));
     } finally {
-      uploadBusy = false;
+      uploadState.busy = false;
+      if (uploadState.minimized || !uploadState.open) { uploadState.open = true; uploadState.minimized = false; }
+      renderUpload();
     }
   }
   async function batchMove() {
@@ -432,10 +521,15 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
   $('dialogCancel').onclick = () => closeDialog(null);
   $('dialogConfirm').onclick = () => { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); };
   $('dialogBackdrop').addEventListener('mousedown', (e) => { if (e.target === e.currentTarget) closeDialog(null); });
+  $('uploadMinimize').onclick = minimizeUpload;
+  $('uploadAction').onclick = closeUpload;
+  $('uploadClose').onclick = closeUpload;
+  $('uploadPill').onclick = restoreUpload;
+  $('uploadBackdrop').addEventListener('mousedown', (e) => { if (e.target === e.currentTarget) closeUpload(); });
   $('moveCancel').onclick = closeMoveDialog;
   $('moveConfirm').onclick = confirmMoveDialog;
   $('moveBackdrop').addEventListener('mousedown', (e) => { if (e.target === e.currentTarget) closeMoveDialog(); });
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('moveBackdrop').style.display === 'flex') { closeMoveDialog(); return; } if (!dialogResolve) return; if (e.key === 'Escape') closeDialog(null); if (e.key === 'Enter') { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); } });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && uploadState.open) { closeUpload(); return; } if (e.key === 'Escape' && $('moveBackdrop').style.display === 'flex') { closeMoveDialog(); return; } if (!dialogResolve) return; if (e.key === 'Escape') closeDialog(null); if (e.key === 'Enter') { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); } });
   const drag = { active: false, x: 0, y: 0, frame: 0 };
   area.addEventListener('mousedown', (e) => { if (e.button !== 0 || e.target.closest('.item') || window.matchMedia('(pointer: coarse)').matches) return; drag.active = true; drag.x = e.clientX; drag.y = e.clientY; state.selected.clear(); document.querySelectorAll('.item.sel').forEach((node) => node.classList.remove('sel')); });
   window.addEventListener('mousemove', (e) => {
