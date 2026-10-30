@@ -229,7 +229,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android armv7-linux-androideabi
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -254,20 +254,28 @@ jobs:
             --target aarch64 \
             --ci \
             --ignore-version-mismatches
+          pnpm tauri android build \
+            --debug \
+            --apk \
+            --target armv7 \
+            --ci \
+            --ignore-version-mismatches
+          cd src-tauri/gen/android
+          ./gradlew :app:packageUniversalDebug -x rustBuildUniversalDebug --no-daemon
 
       - name: Collect APK
         shell: bash
         run: |
           mkdir -p artifacts
-          APK="$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -print -quit)"
-          test -n "$APK"
-          cp "$APK" artifacts/ProxmarkStudio-android-arm64-debug.apk
+          APK="src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
+          test -f "$APK"
+          cp "$APK" artifacts/ProxmarkStudio-android-universal-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProxmarkStudio-android-arm64
-          path: artifacts/ProxmarkStudio-android-arm64-debug.apk
+          name: ProxmarkStudio-android-universal
+          path: artifacts/ProxmarkStudio-android-universal-debug.apk
           if-no-files-found: error
           retention-days: 14
 

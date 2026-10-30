@@ -1,7 +1,8 @@
 param(
   [switch]$Debug,
   [switch]$Release,
-  [switch]$Apk
+  [switch]$Apk,
+  [string[]]$Targets = @('aarch64', 'armv7')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,9 +89,23 @@ if ($msys) { $env:PM3X_MINGW_BIN = $msys }
 $cli = Join-Path $root 'node_modules/@tauri-apps/cli/tauri.js'
 if (-not (Test-Path $cli)) { throw 'Tauri CLI is missing. Run `pnpm install` first.' }
 
-$cliArgs = @('android', 'build', '--target', 'aarch64', '--ci', '--ignore-version-mismatches')
-if (-not $Release) { $cliArgs += '--debug' }
-if ($Apk -or -not $Release) { $cliArgs += '--apk' }
+foreach ($target in $Targets) {
+  Write-Host "Building Android target: $target"
+  $cliArgs = @('android', 'build', '--target', $target, '--ci', '--ignore-version-mismatches')
+  if (-not $Release) { $cliArgs += '--debug' }
+  if ($Apk -or -not $Release) { $cliArgs += '--apk' }
+  & node $cli @cliArgs
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 
-& node $cli @cliArgs
+# Tauri packages only the last target into its ABI-specific APK. All Rust
+# libraries are now present in jniLibs, so repackage the universal APK once
+# with every ABI included.
+$profile = if ($Release) { 'Release' } else { 'Debug' }
+Write-Host "Packaging universal APK with: $($Targets -join ', ')"
+& (Join-Path $root 'src-tauri/gen/android/gradlew.bat') `
+  --project-dir (Join-Path $root 'src-tauri/gen/android') `
+  ":app:packageUniversal$profile" `
+  '-x' "rustBuildUniversal$profile" `
+  --no-daemon
 exit $LASTEXITCODE
