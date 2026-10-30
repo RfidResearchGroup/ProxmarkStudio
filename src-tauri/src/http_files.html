@@ -7,7 +7,7 @@
 <style>
 :root{color-scheme:dark;--bg:#050810;--panel:#0c1422;--line:#22324a;--text:#dbe7f7;--muted:#7d93b0;--accent:#4cf0c8}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-button,input{font:inherit}button{cursor:pointer}
+button,input,select{font:inherit}button{cursor:pointer}
 header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--line);background:#09111d;position:sticky;top:0;z-index:5}
 .brand{font-weight:700;letter-spacing:.08em;color:var(--accent);margin-right:6px}
 .crumbs{display:flex;align-items:center;gap:4px;flex:1;min-width:180px;overflow:auto;white-space:nowrap}
@@ -15,28 +15,33 @@ header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 18px
 .toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .toolbar button,.toolbar select{background:#101c2d;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
 .toolbar button:hover{border-color:var(--accent);color:var(--accent)}
-.toolbar .primary{background:var(--accent);color:#041410;border-color:var(--accent);font-weight:700}
+.toolbar button:disabled{opacity:.45;cursor:default}
 main{padding:16px 18px 80px}
-.drop{border:1px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted);margin-bottom:14px}
-.drop.over{border-color:var(--accent);background:#0c1d20;color:var(--accent)}
-.meta{display:flex;gap:12px;color:var(--muted);font-size:12px;margin-bottom:10px}
-.file-area{position:relative;min-height:160px;user-select:none}
+.meta{display:flex;gap:12px;color:var(--muted);font-size:12px;margin:4px 0 10px;flex-wrap:wrap}
+.file-area{position:relative;min-height:220px;user-select:none;border-radius:12px;transition:background .15s,border-color .15s}
+.file-area.dragging{background:#071a1a;box-shadow:inset 0 0 0 1px var(--accent)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px}
 .list{display:flex;flex-direction:column;gap:4px}
-.item{position:relative;border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:10px;min-width:0;cursor:default}
+.item{position:relative;border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:10px;min-width:0;cursor:default;transition:border-color .12s,background .12s}
 .list .item{display:flex;align-items:center;gap:10px;padding:8px 10px}
 .item:hover{border-color:#3b5578}.item.sel{border-color:var(--accent);background:#0d2526}
+.item.drop-target{border-color:var(--accent);background:#0e2a29;box-shadow:0 0 0 2px rgba(76,240,200,.2)}
 .item .icon{font-size:24px;line-height:1;flex:none}.list .icon{font-size:19px}
 .item .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item .sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .list .name{flex:1}.list .sub{flex:none}
 .item .actions{position:absolute;right:6px;top:6px;display:none;gap:3px}.item:hover .actions,.item.sel .actions{display:flex}
 .actions button{border:1px solid var(--line);background:#0b1524;color:var(--muted);border-radius:5px;padding:3px 5px;font-size:11px}
 .grid .item .actions{bottom:6px;top:auto}
+.upload-item{border-style:dashed;color:var(--accent);display:flex;align-items:center;justify-content:center;gap:7px;min-height:82px;background:#0a1b1a;font-weight:600}
+.list .upload-item{justify-content:flex-start;min-height:0;padding:10px}
+.upload-item:hover{background:#0e2a29;border-color:var(--accent)}
 .empty{color:var(--muted);text-align:center;padding:40px 10px}
 #marquee{position:fixed;border:1px solid var(--accent);background:rgba(76,240,200,.12);pointer-events:none;display:none;z-index:9}
-.toast{position:fixed;right:18px;bottom:18px;background:#122235;border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);max-width:360px;display:none;z-index:20}
-.toast.err{border-color:#ff6b81;color:#ffb3be}
-@media(max-width:600px){header{padding:10px}.brand{display:none}main{padding:10px}.grid{grid-template-columns:1fr}.item{display:flex;align-items:center;gap:10px;padding:11px 10px}.item .actions{position:static;display:flex;margin-left:auto;padding-left:4px}.item .actions button{min-width:28px;min-height:28px}.list .item{padding:9px}}
+#contextmenu{position:fixed;z-index:40;display:none;min-width:190px;padding:5px;border:1px solid var(--line);border-radius:9px;background:#0d1726;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.ctx-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 9px;border:0;border-radius:6px;background:none;color:var(--text);text-align:left;font-size:12px}.ctx-item:hover{background:#17273b}.ctx-item:disabled{opacity:.4;cursor:default}.ctx-sep{height:1px;margin:4px 3px;background:var(--line)}
+.toast{position:fixed;right:18px;bottom:18px;background:#122235;border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);max-width:360px;display:none;z-index:50}.toast.err{border-color:#ff6b81;color:#ffb3be}
+.drop-hint{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d2928;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:8px 12px;display:none;z-index:30;font-size:12px;pointer-events:none}
+@media(max-width:600px){header{padding:10px}.brand{display:none}main{padding:10px 10px 90px}.grid{grid-template-columns:1fr}.item{display:flex;align-items:center;gap:10px;padding:11px 10px}.item .actions{position:static;display:flex;margin-left:auto;padding-left:4px}.item .actions button{min-width:28px;min-height:28px}.list .item{padding:9px}.upload-item{min-height:46px;justify-content:flex-start;padding:11px 10px}.toolbar{width:100%}.toolbar button{flex:1}.toolbar select{flex:1}}
 </style>
 </head>
 <body>
@@ -44,103 +49,208 @@ main{padding:16px 18px 80px}
   <span class="brand">PM3 STUDIO</span>
   <nav class="crumbs" id="crumbs"></nav>
   <div class="toolbar">
-    <button id="uploadBtn">Upload</button>
-    <button id="mkdirBtn">New folder</button>
-    <button id="layoutBtn">Grid</button>
-    <select id="sort">
-      <option value="name">Name</option><option value="size">Size</option><option value="modified">Modified</option>
-    </select>
-    <button id="deleteBtn" disabled>Delete</button>
-    <button id="moveBtn" disabled>Move</button>
-    <input id="fileInput" type="file" multiple hidden>
+    <button id="langBtn">中文</button>
+    <button id="layoutBtn">List</button>
+    <select id="sort" aria-label="sort"></select>
+    <button id="deleteBtn" disabled></button>
+    <button id="moveBtn" disabled></button>
+    <button id="mkdirBtn"></button>
   </div>
 </header>
-<main>
-  <div class="drop" id="drop">Drop files here to upload · or use “Upload”</div>
-  <div class="meta"><span id="count"></span><span id="path"></span></div>
-  <div class="file-area" id="area"><div id="files" class="grid"></div><div class="empty" id="empty" hidden>This folder is empty.</div></div>
+<main id="main">
+  <div class="meta"><span id="count"></span><span id="path"></span><span id="hint"></span></div>
+  <div class="file-area" id="area">
+    <div id="files" class="grid"></div>
+    <div class="empty" id="empty" hidden></div>
+  </div>
 </main>
-<div id="marquee"></div><div class="toast" id="toast"></div>
+<div id="marquee"></div>
+<div id="contextmenu"></div>
+<div class="toast" id="toast"></div>
+<div class="drop-hint" id="dropHint"></div>
+<input id="fileInput" type="file" multiple hidden>
 <script>
 (() => {
-  const token = new URLSearchParams(location.search).get('token') || '';
+  const messages = {
+    en: {
+      documentTitle: 'Proxmark Studio · Workspace', workspace: 'Workspace', upload: 'Upload', newFolder: 'New folder',
+      delete: 'Delete', move: 'Move', rename: 'Rename', open: 'Open', layout: 'Layout', grid: 'Grid', list: 'List',
+      sort: 'Sort', name: 'Name', size: 'Size', modified: 'Modified', empty: 'This folder is empty.',
+      filter: 'Filter by file name……', drop: 'Drop files here to upload', dropHere: 'Drop files into this folder',
+      uploaded: 'Upload complete', uploadFailed: 'Upload failed', deleteConfirm: 'Delete {name}?',
+      deleteSelected: 'Delete {count} selected item(s)?', newFolderPrompt: 'Folder name', renamePrompt: 'New name',
+      movePrompt: 'Move {count} selected item(s) to folder path', root: 'Workspace', working: 'Working…',
+      invalidTarget: 'Invalid destination.', items: '{count} items', hint: 'Right-click for more actions · Ctrl/⌘ click or drag to select',
+      overwrite: 'Some files already exist. Overwrite them?', folder: 'Folder', noAccess: 'Not available',
+      layoutGrid: 'Switch to grid layout', layoutList: 'Switch to list layout', copied: 'Copied'
+    },
+    zh: {
+      documentTitle: 'Proxmark Studio · 工作区', workspace: '工作区', upload: '上传', newFolder: '新建文件夹',
+      delete: '删除', move: '移动', rename: '重命名', open: '打开', layout: '排版', grid: '网格', list: '列表',
+      sort: '排序', name: '名称', size: '大小', modified: '修改时间', empty: '此文件夹为空。',
+      filter: '按文件名筛选……', drop: '拖拽文件到此处上传', dropHere: '松开鼠标，上传到此文件夹',
+      uploaded: '上传完成', uploadFailed: '上传失败', deleteConfirm: '删除“{name}”？',
+      deleteSelected: '删除选中的 {count} 项？', newFolderPrompt: '文件夹名称', renamePrompt: '新名称',
+      movePrompt: '将选中的 {count} 项移动到文件夹路径', root: '工作区', working: '处理中……',
+      invalidTarget: '目标位置无效。', items: '{count} 项', hint: '右键更多操作 · Ctrl/⌘ 点击或拖动框选',
+      overwrite: '部分文件已存在，是否覆盖？', folder: '文件夹', noAccess: '不可用',
+      layoutGrid: '切换为网格排版', layoutList: '切换为列表排版', copied: '已复制'
+    }
+  };
+  const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name', context: null, dragPath: '' };
+  let lang = localStorage.getItem('pm3-http-lang') || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+  if (!messages[lang]) lang = 'en';
   const $ = (id) => document.getElementById(id);
-  const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name' };
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const t = (key, vars) => { let text = messages[lang][key] || messages.en[key] || key; if (vars) for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, value); return text; };
   const api = (path, options) => { const url = new URL(path, location.origin); url.searchParams.set('token', token); return fetch(url, options); };
-  const fmt = (n) => { if (n < 1024) return n + ' B'; if (n < 1048576) return (n/1024).toFixed(1) + ' KB'; return (n/1048576).toFixed(1) + ' MB'; };
-  const toast = (text, err) => { const el = $('toast'); el.textContent = text; el.className = 'toast' + (err ? ' err' : ''); el.style.display = 'block'; clearTimeout(toast.timer); toast.timer = setTimeout(() => el.style.display = 'none', 4200); };
+  const fmt = (n) => { if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; };
   const parent = (p) => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
   const join = (p, name) => p ? p + '/' + name : name;
-
+  const toast = (text, err) => { const el = $('toast'); el.textContent = text; el.className = 'toast' + (err ? ' err' : ''); el.style.display = 'block'; clearTimeout(toast.timer); toast.timer = setTimeout(() => el.style.display = 'none', 4200); };
+  const syncChrome = () => {
+    document.title = t('documentTitle'); $('langBtn').textContent = lang === 'en' ? '中文' : 'EN';
+    $('layoutBtn').textContent = state.layout === 'grid' ? t('list') : t('grid');
+    $('layoutBtn').title = state.layout === 'grid' ? t('layoutList') : t('layoutGrid');
+    $('sort').innerHTML = `<option value="name">${t('name')}</option><option value="size">${t('size')}</option><option value="modified">${t('modified')}</option>`;
+    $('sort').value = state.sort;
+    $('deleteBtn').textContent = t('delete'); $('moveBtn').textContent = t('move'); $('mkdirBtn').textContent = t('newFolder');
+    $('dropHint').textContent = t('drop'); $('hint').textContent = t('hint'); $('empty').textContent = t('empty');
+    $('fileInput').setAttribute('aria-label', t('upload'));
+  };
   async function load(path = state.path) {
     const res = await api('/api/list?path=' + encodeURIComponent(path));
     const data = await res.json();
-    if (!res.ok) return toast(data.error || 'Could not list folder', true);
+    if (!res.ok) return toast(data.error || t('uploadFailed'), true);
     state.path = path; state.entries = data.entries || []; state.selected.clear();
     render();
   }
   function sorted() {
     const list = [...state.entries];
-    list.sort((a,b) => {
+    list.sort((a, b) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      let r = state.sort === 'size' ? a.size-b.size : state.sort === 'modified' ? a.modified-b.modified : a.name.localeCompare(b.name, undefined, {numeric:true,sensitivity:'base'});
+      let r = state.sort === 'size' ? a.size - b.size : state.sort === 'modified' ? a.modified - b.modified : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
       return r;
     });
     return list;
   }
+  function makeItem(entry) {
+    const node = document.createElement('div');
+    node.className = 'item' + (state.selected.has(entry.path) ? ' sel' : '');
+    node.dataset.path = entry.path; node.dataset.dir = entry.isDir ? '1' : '';
+    node.innerHTML = `<div class="icon">${entry.isDir ? '📁' : '📄'}</div><div style="min-width:0"><div class="name"></div><div class="sub"></div></div><div class="actions"><button data-act="download">↓</button><button data-act="rename">✎</button><button data-act="delete">✕</button></div>`;
+    node.querySelector('.name').textContent = entry.name;
+    node.querySelector('.sub').textContent = entry.isDir ? t('folder') : fmt(entry.size);
+    node.addEventListener('click', (e) => {
+      if (e.button !== 0 || e.target.closest('.actions')) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey) { state.selected.has(entry.path) ? state.selected.delete(entry.path) : state.selected.add(entry.path); render(); return; }
+      state.selected.clear();
+      if (entry.isDir) { load(entry.path); return; }
+      state.selected.add(entry.path); render();
+    });
+    node.addEventListener('dblclick', () => entry.isDir ? load(entry.path) : download(entry));
+    node.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); if (!state.selected.has(entry.path)) { state.selected.clear(); state.selected.add(entry.path); render(); } openContext(e.clientX, e.clientY, entry); });
+    node.querySelector('[data-act="download"]').onclick = (e) => { e.stopPropagation(); entry.isDir ? toast(t('noAccess')) : download(entry); };
+    node.querySelector('[data-act="rename"]').onclick = (e) => { e.stopPropagation(); rename(entry); };
+    node.querySelector('[data-act="delete"]').onclick = (e) => { e.stopPropagation(); remove(entry); };
+    node.addEventListener('dragenter', (e) => { if (!entry.isDir) return; e.preventDefault(); clearDropTarget(); node.classList.add('drop-target'); state.dragPath = entry.path; $('dropHint').textContent = t('dropHere'); });
+    node.addEventListener('dragover', (e) => { if (entry.isDir) e.preventDefault(); });
+    return node;
+  }
+  function uploadTile() {
+    const node = document.createElement('button');
+    node.type = 'button'; node.className = 'item upload-item'; node.dataset.upload = '1';
+    node.innerHTML = `<span class="icon">＋</span><span class="name">${t('upload')}</span>`;
+    node.onclick = () => $('fileInput').click();
+    return node;
+  }
   function render() {
-    const root = $('files'); root.className = state.layout;
-    $('layoutBtn').textContent = state.layout === 'grid' ? 'List' : 'Grid';
+    const files = $('files'); files.className = state.layout;
     $('empty').hidden = state.entries.length > 0;
-    $('count').textContent = state.entries.length + ' items';
+    $('count').textContent = t('items', { count: state.entries.length });
     $('path').textContent = '/' + state.path;
-    $('deleteBtn').disabled = !state.selected.size;
-    $('moveBtn').disabled = !state.selected.size;
+    $('deleteBtn').disabled = !state.selected.size; $('moveBtn').disabled = !state.selected.size;
+    $('layoutBtn').textContent = state.layout === 'grid' ? t('list') : t('grid');
     const crumbs = $('crumbs'); crumbs.innerHTML = '';
-    const rootBtn = document.createElement('button'); rootBtn.textContent = 'Workspace'; rootBtn.onclick = () => load(''); crumbs.append(rootBtn);
+    const rootBtn = document.createElement('button'); rootBtn.textContent = t('root'); rootBtn.onclick = () => load(''); crumbs.append(rootBtn);
     let acc = '';
     state.path.split('/').filter(Boolean).forEach((part) => { acc = join(acc, part); const b = document.createElement('button'); b.textContent = ' / ' + part; b.onclick = () => load(acc); crumbs.append(b); });
-    root.innerHTML = '';
-    sorted().forEach((entry) => {
-      const node = document.createElement('div'); node.className = 'item' + (state.selected.has(entry.path) ? ' sel' : '');
-      node.dataset.path = entry.path;
-      node.innerHTML = `<div class="icon">${entry.isDir ? '📁' : '📄'}</div><div style="min-width:0"><div class="name"></div><div class="sub"></div></div><div class="actions"><button data-act="download" title="Download">↓</button><button data-act="rename" title="Rename">✎</button><button data-act="delete" title="Delete">✕</button></div>`;
-      node.querySelector('.name').textContent = entry.name;
-      node.querySelector('.sub').textContent = entry.isDir ? 'folder' : fmt(entry.size);
-      node.addEventListener('click', (e) => { if (e.button !== 0) return; if (e.ctrlKey || e.metaKey || e.shiftKey) { state.selected.has(entry.path) ? state.selected.delete(entry.path) : state.selected.add(entry.path); render(); return; } if (entry.isDir) { load(entry.path); return; } state.selected.clear(); state.selected.add(entry.path); render(); });
-      node.addEventListener('dblclick', () => entry.isDir ? load(entry.path) : download(entry));
-      node.querySelector('[data-act="download"]').onclick = (e) => { e.stopPropagation(); entry.isDir ? downloadFolder(entry) : download(entry); };
-      node.querySelector('[data-act="rename"]').onclick = (e) => { e.stopPropagation(); rename(entry); };
-      node.querySelector('[data-act="delete"]').onclick = (e) => { e.stopPropagation(); remove(entry); };
-      root.append(node);
-    });
+    files.innerHTML = ''; files.append(uploadTile());
+    sorted().forEach((entry) => files.append(makeItem(entry)));
+    syncChrome();
   }
-  async function download(entry) { const a = document.createElement('a'); a.href = '/api/download?path=' + encodeURIComponent(entry.path) + '&token=' + encodeURIComponent(token); a.download = entry.name; document.body.append(a); a.click(); a.remove(); }
-  async function downloadFolder(entry) { toast('Folder download is not available yet; open the folder to download files.'); }
-  async function remove(entry) { if (!confirm('Delete ' + entry.name + '?')) return; const res = await api('/api/delete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:entry.path})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Delete failed', true); await load(); }
-  async function rename(entry) { const name = prompt('New name', entry.name); if (!name || name === entry.name) return; const res = await api('/api/move', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:entry.path,target:parent(entry.path),name})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Rename failed', true); await load(); }
-  async function upload(files, overwrite = false) {
+  function download(entry) { const a = document.createElement('a'); a.href = '/api/download?path=' + encodeURIComponent(entry.path) + '&token=' + encodeURIComponent(token); a.download = entry.name; document.body.append(a); a.click(); a.remove(); }
+  async function remove(entry) {
+    const entries = entry ? [entry] : [...state.selected].map((path) => ({ path, name: path.split('/').pop() }));
+    if (!entries.length) return;
+    if (!confirm(entries.length === 1 ? t('deleteConfirm', { name: entries[0].name }) : t('deleteSelected', { count: entries.length }))) return;
+    for (const item of entries) await api('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: item.path }) });
+    await load();
+  }
+  async function rename(entry) {
+    const name = prompt(t('renamePrompt'), entry.name); if (!name || name === entry.name) return;
+    const res = await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: entry.path, target: parent(entry.path), name }) });
+    const data = await res.json(); if (!res.ok) return toast(data.error || t('uploadFailed'), true); await load();
+  }
+  async function mkdir() {
+    const name = prompt(t('newFolderPrompt')); if (!name) return;
+    const res = await api('/api/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parent: state.path, name }) });
+    const data = await res.json(); if (!res.ok) return toast(data.error || t('uploadFailed'), true); await load();
+  }
+  async function upload(files, overwrite = false, target = state.path) {
     if (!files.length) return;
     const form = new FormData(); for (const file of files) form.append('files', file, file.name);
-    const res = await api('/api/upload?path=' + encodeURIComponent(state.path) + '&overwrite=' + (overwrite ? '1' : '0'), {method:'POST',body:form});
-    if (res.status === 409 && !overwrite) { if (confirm('Some files already exist. Overwrite them?')) return upload(files, true); return; }
-    const data = await res.json().catch(() => ({})); if (!res.ok) return toast(data.error || 'Upload failed', true); toast('Upload complete'); await load();
+    const res = await api('/api/upload?path=' + encodeURIComponent(target) + '&overwrite=' + (overwrite ? '1' : '0'), { method: 'POST', body: form });
+    if (res.status === 409 && !overwrite) { if (confirm(t('overwrite'))) return upload(files, true, target); return; }
+    const data = await res.json().catch(() => ({})); if (!res.ok) return toast(data.error || t('uploadFailed'), true); toast(t('uploaded')); await load();
   }
-  async function mkdir() { const name = prompt('Folder name'); if (!name) return; const res = await api('/api/mkdir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({parent:state.path,name})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Could not create folder', true); await load(); }
-  async function batchDelete() { if (!state.selected.size || !confirm('Delete ' + state.selected.size + ' selected item(s)?')) return; for (const path of [...state.selected]) { await api('/api/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}); } await load(); }
-  async function batchMove() { if (!state.selected.size) return; const target = prompt('Move ' + state.selected.size + ' item(s) to folder path', state.path); if (target === null) return; for (const path of [...state.selected]) { await api('/api/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:path,target,name:path.split('/').pop()})}); } await load(); }
-  $('uploadBtn').onclick = () => $('fileInput').click();
+  async function batchMove() {
+    if (!state.selected.size) return;
+    const target = prompt(t('movePrompt', { count: state.selected.size }), state.path); if (target === null) return;
+    for (const path of [...state.selected]) await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: path, target, name: path.split('/').pop() }) });
+    await load();
+  }
+  function openContext(x, y, entry) {
+    state.context = entry || null;
+    const menu = $('contextmenu'); menu.innerHTML = '';
+    const add = (label, action, disabled = false) => { const b = document.createElement('button'); b.className = 'ctx-item'; b.textContent = label; b.disabled = disabled; b.onclick = () => { closeContext(); action(); }; menu.append(b); };
+    if (entry?.isDir) add(t('open'), () => load(entry.path));
+    add(t('upload'), () => $('fileInput').click());
+    add(t('newFolder'), mkdir);
+    if (entry) {
+      add(t('rename'), () => rename(entry));
+      add(t('move'), () => { state.selected.clear(); state.selected.add(entry.path); batchMove(); });
+      add(t('delete'), () => remove(entry));
+      menu.append(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
+    }
+    add(t('layout') + ': ' + (state.layout === 'grid' ? t('grid') : t('list')), () => { state.layout = state.layout === 'grid' ? 'list' : 'grid'; render(); });
+    add(t('sort') + ': ' + t('name'), () => { state.sort = 'name'; render(); });
+    add(t('sort') + ': ' + t('size'), () => { state.sort = 'size'; render(); });
+    add(t('sort') + ': ' + t('modified'), () => { state.sort = 'modified'; render(); });
+    menu.style.display = 'block'; menu.style.left = Math.min(x, window.innerWidth - 210) + 'px'; menu.style.top = Math.min(y, window.innerHeight - menu.offsetHeight - 8) + 'px';
+  }
+  function closeContext() { $('contextmenu').style.display = 'none'; }
+  function clearDropTarget() { document.querySelectorAll('.item.drop-target').forEach((node) => node.classList.remove('drop-target')); state.dragPath = ''; $('dropHint').style.display = 'none'; }
+  let dragDepth = 0;
+  const area = $('area');
+  area.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; area.classList.add('dragging'); $('dropHint').textContent = t('drop'); $('dropHint').style.display = 'block'; });
+  area.addEventListener('dragover', (e) => { e.preventDefault(); if (!state.dragPath) $('dropHint').textContent = t('drop'); });
+  area.addEventListener('dragleave', (e) => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; area.classList.remove('dragging'); clearDropTarget(); } });
+  area.addEventListener('drop', (e) => { e.preventDefault(); const target = state.dragPath || state.path; dragDepth = 0; area.classList.remove('dragging'); clearDropTarget(); upload([...e.dataTransfer.files], false, target); });
+  area.addEventListener('contextmenu', (e) => { e.preventDefault(); state.selected.clear(); render(); openContext(e.clientX, e.clientY, null); });
+  window.addEventListener('click', () => closeContext());
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContext(); });
+  window.addEventListener('scroll', () => closeContext(), true);
   $('fileInput').onchange = (e) => { upload([...e.target.files]); e.target.value = ''; };
-  $('mkdirBtn').onclick = mkdir;
   $('layoutBtn').onclick = () => { state.layout = state.layout === 'grid' ? 'list' : 'grid'; render(); };
   $('sort').onchange = (e) => { state.sort = e.target.value; render(); };
-  $('deleteBtn').onclick = batchDelete; $('moveBtn').onclick = batchMove;
-  const drop = $('drop'); drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave = () => drop.classList.remove('over'); drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); upload([...e.dataTransfer.files]); };
-  const area = $('area'); let drag = null;
-  area.addEventListener('mousedown', (e) => { if (e.button !== 0 || e.target.closest('.item')) return; drag = {x:e.clientX,y:e.clientY}; state.selected.clear(); render(); });
-  window.addEventListener('mousemove', (e) => { if (!drag) return; const box = $('marquee'); const left = Math.min(drag.x,e.clientX), top = Math.min(drag.y,e.clientY), right = Math.max(drag.x,e.clientX), bottom = Math.max(drag.y,e.clientY); box.style.cssText = `display:block;left:${left}px;top:${top}px;width:${right-left}px;height:${bottom-top}px`; document.querySelectorAll('.item').forEach((node) => { const r = node.getBoundingClientRect(); const hit = r.left < right && r.right > left && r.top < bottom && r.bottom > top; if (hit) state.selected.add(node.dataset.path); else state.selected.delete(node.dataset.path); }); render(); });
-  window.addEventListener('mouseup', () => { drag = null; $('marquee').style.display = 'none'; });
-  load('');
+  $('deleteBtn').onclick = () => remove(null); $('moveBtn').onclick = batchMove; $('mkdirBtn').onclick = mkdir;
+  $('langBtn').onclick = () => { lang = lang === 'en' ? 'zh' : 'en'; localStorage.setItem('pm3-http-lang', lang); document.documentElement.lang = lang; render(); };
+  const drag = { active: false, x: 0, y: 0 };
+  area.addEventListener('mousedown', (e) => { if (e.button !== 0 || e.target.closest('.item')) return; drag.active = true; drag.x = e.clientX; drag.y = e.clientY; state.selected.clear(); render(); });
+  window.addEventListener('mousemove', (e) => { if (!drag.active) return; const box = $('marquee'); const left = Math.min(drag.x, e.clientX), top = Math.min(drag.y, e.clientY), right = Math.max(drag.x, e.clientX), bottom = Math.max(drag.y, e.clientY); box.style.cssText = `display:block;left:${left}px;top:${top}px;width:${right - left}px;height:${bottom - top}px`; document.querySelectorAll('.item[data-path]').forEach((node) => { const r = node.getBoundingClientRect(); if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) state.selected.add(node.dataset.path); else state.selected.delete(node.dataset.path); }); render(); });
+  window.addEventListener('mouseup', () => { drag.active = false; $('marquee').style.display = 'none'; });
+  document.documentElement.lang = lang; load('');
 })();
 </script>
 </body>
