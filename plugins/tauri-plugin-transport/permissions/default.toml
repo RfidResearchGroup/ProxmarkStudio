@@ -6,6 +6,7 @@ permissions = [
     "allow-list-spp",
     "allow-open-spp",
     "allow-scan-spp",
+    "allow-share-file",
     "allow-write",
     "allow-close",
     "allow-register-listener",

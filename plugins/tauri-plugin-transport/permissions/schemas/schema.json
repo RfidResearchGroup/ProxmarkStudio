@@ -391,6 +391,18 @@
           "markdownDescription": "Denies the scan_spp command without any pre-configured scope."
         },
         {
+          "description": "Enables the share_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-share-file",
+          "markdownDescription": "Enables the share_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the share_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-share-file",
+          "markdownDescription": "Denies the share_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the write command without any pre-configured scope.",
           "type": "string",
           "const": "allow-write",
@@ -403,10 +415,10 @@
           "markdownDescription": "Denies the write command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the Android transport bridge\n#### This default permission set includes:\n\n- `allow-list-usb`\n- `allow-open-usb`\n- `allow-list-spp`\n- `allow-open-spp`\n- `allow-scan-spp`\n- `allow-write`\n- `allow-close`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permissions for the Android transport bridge\n#### This default permission set includes:\n\n- `allow-list-usb`\n- `allow-open-usb`\n- `allow-list-spp`\n- `allow-open-spp`\n- `allow-scan-spp`\n- `allow-share-file`\n- `allow-write`\n- `allow-close`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the Android transport bridge\n#### This default permission set includes:\n\n- `allow-list-usb`\n- `allow-open-usb`\n- `allow-list-spp`\n- `allow-open-spp`\n- `allow-scan-spp`\n- `allow-write`\n- `allow-close`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permissions for the Android transport bridge\n#### This default permission set includes:\n\n- `allow-list-usb`\n- `allow-open-usb`\n- `allow-list-spp`\n- `allow-open-spp`\n- `allow-scan-spp`\n- `allow-share-file`\n- `allow-write`\n- `allow-close`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

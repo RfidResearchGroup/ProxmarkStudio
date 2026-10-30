@@ -11,6 +11,7 @@ const props = withDefaults(
     full?: boolean
     flush?: boolean
     closeOnBackdrop?: boolean
+    closeOnEscape?: boolean
   }>(),
   {
     title: '',
@@ -19,6 +20,7 @@ const props = withDefaults(
     full: false,
     flush: false,
     closeOnBackdrop: true,
+    closeOnEscape: true,
   },
 )
 
@@ -38,7 +40,7 @@ function onBackdrop(event: MouseEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && props.open) close()
+  if (event.key === 'Escape' && props.open && props.closeOnEscape) close()
 }
 
 watch(

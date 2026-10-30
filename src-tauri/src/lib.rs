@@ -1,5 +1,6 @@
 mod bridge;
 mod files;
+mod http_server;
 mod resources;
 mod state;
 mod system;
@@ -64,6 +65,12 @@ pub fn run() {
             files::delete_path,
             files::move_path,
             files::create_folder,
+            files::import_files,
+            files::export_workspace_zip,
+            files::pick_export_directory,
+            http_server::start_http_server,
+            http_server::stop_http_server,
+            http_server::http_server_status,
             resources::check_resources,
             resources::get_release_info,
             resources::install_resources,

@@ -1,10 +1,13 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
+use base64::Engine;
+use serde::{Deserialize, Serialize};
 use tauri::State;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipWriter};
 
 use crate::state::AppState;
 
@@ -447,6 +450,167 @@ pub async fn create_folder(
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[derive(Deserialize)]
+pub struct ImportFile {
+    pub name: String,
+    pub data: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub imported: usize,
+    pub names: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportResult {
+    pub path: String,
+    pub name: String,
+    pub size: u64,
+}
+
+#[tauri::command]
+pub async fn import_files(
+    state: State<'_, AppState>,
+    scope: String,
+    dir: String,
+    files: Vec<ImportFile>,
+    overwrite: bool,
+) -> Result<ImportResult, String> {
+    let root = scope_root(&state, &scope)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = safe_existing_path(&root, &dir)?;
+        if !directory.is_dir() {
+            return Err("The import destination is not a directory.".to_string());
+        }
+        let mut names = Vec::new();
+        for file in files {
+            let name = validate_name(&file.name)?;
+            let relative = if dir.is_empty() {
+                name.clone()
+            } else {
+                format!("{}/{}", normalize_relative(&dir)?, name)
+            };
+            let destination = safe_path(&root, &relative)?;
+            if destination.exists() && !overwrite {
+                return Err(format!("{} already exists.", name));
+            }
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(file.data.as_bytes())
+                .map_err(|error| format!("Could not decode {}: {error}", name))?;
+            let mut output = File::create(&destination)
+                .map_err(|error| format!("Could not create {}: {error}", destination.display()))?;
+            output
+                .write_all(&bytes)
+                .map_err(|error| format!("Could not write {}: {error}", destination.display()))?;
+            names.push(name);
+        }
+        Ok(ImportResult {
+            imported: names.len(),
+            names,
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+fn add_zip_dir(
+    zip: &mut ZipWriter<File>,
+    root: &Path,
+    directory: &Path,
+    options: SimpleFileOptions,
+) -> Result<(), String> {
+    let mut entries = fs::read_dir(directory)
+        .map_err(|error| format!("Could not read {}: {error}", directory.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            add_zip_dir(zip, root, &path, options)?;
+        } else if file_type.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|error| error.to_string())?
+                .to_string_lossy()
+                .replace('\\', "/");
+            zip.start_file(relative, options).map_err(|error| error.to_string())?;
+            let mut input = File::open(&path)
+                .map_err(|error| format!("Could not open {}: {error}", path.display()))?;
+            std::io::copy(&mut input, zip).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn export_workspace_zip(
+    state: State<'_, AppState>,
+    destination: Option<String>,
+) -> Result<ExportResult, String> {
+    let root = state.pm3_dir.clone();
+    let cache = state.home.join("cache");
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::create_dir_all(&cache)
+            .map_err(|error| format!("Could not create cache directory: {error}"))?;
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|value| value.as_secs())
+            .unwrap_or(0);
+        let name = format!("proxmark-studio-workspace-{stamp}.zip");
+        let output_path = if let Some(directory) = destination.filter(|value| !value.trim().is_empty()) {
+            let directory = PathBuf::from(directory);
+            if !directory.is_dir() {
+                return Err("The selected export directory does not exist.".to_string());
+            }
+            directory.join(&name)
+        } else {
+            cache.join(&name)
+        };
+        let file = File::create(&output_path)
+            .map_err(|error| format!("Could not create {}: {error}", output_path.display()))?;
+        let mut zip = ZipWriter::new(file);
+        let options = SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .unix_permissions(0o644);
+        add_zip_dir(&mut zip, &root, &root, options)?;
+        let file = zip.finish().map_err(|error| error.to_string())?;
+        let size = file.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+        Ok(ExportResult {
+            path: output_path.to_string_lossy().to_string(),
+            name,
+            size,
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn pick_export_directory() -> Result<Option<String>, String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        return tauri::async_runtime::spawn_blocking(|| {
+            rfd::FileDialog::new()
+                .pick_folder()
+                .map(|path| path.to_string_lossy().to_string())
+        })
+        .await
+        .map_err(|error| error.to_string());
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        Ok(None)
+    }
 }
 
 /// Write a file inside the workspace. Used by the resource installer for the

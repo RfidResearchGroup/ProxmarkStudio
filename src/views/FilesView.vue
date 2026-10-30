@@ -14,18 +14,24 @@ import {
   FileCode2,
   FileJson,
   FileText,
+  FileUp,
   Folder,
   FolderInput,
   FolderOpen,
   FolderPlus,
+  Globe2,
   HardDrive,
   Home,
+  Loader2,
   MapPin,
   MoreHorizontal,
   RefreshCw,
   Search,
+  Server,
   Share2,
+  ShieldAlert,
   Trash2,
+  Upload,
   WrapText,
   X,
 } from 'lucide-vue-next'
@@ -35,11 +41,21 @@ import { usePlatformStore } from '@/stores/platform'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 import {
+  exportWorkspaceZip,
+  importFiles,
+  isAndroid,
   isTauri,
   listDir,
+  openExternal,
+  pickExportDirectory,
   readFile,
   revealPath,
+  shareFile,
+  startHttpServer,
+  stopHttpServer,
   type FileEntry,
+  type HttpInfo,
+  type ImportFilePayload,
   type ReadFileResult,
   type ReadMode,
 } from '@/services/backend'
@@ -81,6 +97,16 @@ const folderError = ref('')
 
 const shareSupported = computed(() => platform.info.capabilities.share)
 const isRealApp = isTauri
+const importInput = ref<HTMLInputElement | null>(null)
+const importBusy = ref(false)
+const exportOpen = ref(false)
+const exportBusy = ref(false)
+const exportResult = ref('')
+const httpConfirmOpen = ref(false)
+const httpInfo = ref<HttpInfo | null>(null)
+const httpOpen = ref(false)
+const httpBusy = ref(false)
+const httpError = ref('')
 
 function absolutePath(relative: string): string {
   const root = platform.paths.pm3Dir
@@ -168,10 +194,10 @@ async function loadViewer() {
   viewerLoading.value = true
   viewerError.value = ''
   try {
-    const result = await readFile(viewerEntry.value.path, viewerMode.value, files.scope)
+    const result = await readFile(viewerEntry.value.path, viewerMode.value, 'workspace')
     if (result.binary && viewerMode.value === 'text') {
       viewerMode.value = 'hex'
-      const hex = await readFile(viewerEntry.value.path, 'hex', files.scope)
+      const hex = await readFile(viewerEntry.value.path, 'hex', 'workspace')
       viewer.value = hex
     } else {
       viewer.value = result
@@ -248,7 +274,7 @@ async function shareEntry(entry: FileEntry) {
     return
   }
   try {
-    await invoke('plugin:share|share_file', { path: absolutePath(entry.path), mime: mimeFor(entry) })
+    await shareFile(absolutePath(entry.path), mimeFor(entry), entry.name)
     toast.info(settings.t('toast.shareOpened'))
   } catch (error) {
     toast.error(settings.t('common.error'), errorMessage(error))
@@ -360,8 +386,131 @@ async function confirmMove() {
   }
 }
 
+function openImport() {
+  importInput.value?.click()
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read the selected file.'))
+    reader.onload = () => {
+      const result = String(reader.result ?? '')
+      resolve(result.includes(',') ? result.slice(result.indexOf(',') + 1) : result)
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+async function onImportChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const selectedFiles = [...(input.files ?? [])]
+  input.value = ''
+  if (!selectedFiles.length || importBusy.value) return
+  importBusy.value = true
+  try {
+    const existing = new Set(files.entries.map((entry) => entry.name.toLowerCase()))
+    const conflicts = selectedFiles.filter((file) => existing.has(file.name.toLowerCase()))
+    let overwrite = false
+    if (conflicts.length) {
+      overwrite = window.confirm(
+        settings.t('files.importConflict', { names: conflicts.map((file) => file.name).join(', ') }),
+      )
+      if (!overwrite) {
+        const keep = selectedFiles.filter((file) => !existing.has(file.name.toLowerCase()))
+        if (!keep.length) return
+        selectedFiles.splice(0, selectedFiles.length, ...keep)
+      }
+    }
+    const payloads: ImportFilePayload[] = []
+    for (const file of selectedFiles) {
+      payloads.push({ name: file.name, data: await fileToBase64(file) })
+    }
+    const result = await importFiles('workspace', files.path, payloads, overwrite)
+    await files.refresh()
+    toast.success(settings.t('files.importSuccess', { count: result.imported }))
+  } catch (error) {
+    toast.error(settings.t('files.importFailed'), errorMessage(error))
+  } finally {
+    importBusy.value = false
+  }
+}
+
+function closeExport() {
+  if (!exportBusy.value) exportOpen.value = false
+}
+
+async function exportZip() {  if (exportBusy.value) return
+  let destination: string | null = null
+  if (!isAndroid) {
+    destination = await pickExportDirectory()
+    if (!destination) return
+  }
+  exportOpen.value = true
+  exportBusy.value = true
+  exportResult.value = ''
+  try {
+    const result = await exportWorkspaceZip(destination ?? undefined)
+    exportResult.value = `${result.name} · ${formatBytes(result.size)}`
+    if (isAndroid) {
+      await shareFile(result.path, 'application/zip', result.name)
+    } else {
+      toast.success(settings.t('files.exportSuccess'), result.path)
+    }
+  } catch (error) {
+    exportOpen.value = false
+    toast.error(settings.t('files.exportFailed'), errorMessage(error))
+  } finally {
+    exportBusy.value = false
+  }
+}
+
+function openHttpConfirm() {
+  httpError.value = ''
+  httpConfirmOpen.value = true
+}
+
+async function startHttp() {
+  if (httpBusy.value) return
+  httpBusy.value = true
+  httpError.value = ''
+  try {
+    httpInfo.value = await startHttpServer()
+    httpConfirmOpen.value = false
+    httpOpen.value = true
+  } catch (error) {
+    httpError.value = errorMessage(error)
+  } finally {
+    httpBusy.value = false
+  }
+}
+
+async function closeHttp() {
+  if (httpBusy.value) return
+  httpBusy.value = true
+  try {
+    await stopHttpServer()
+    httpOpen.value = false
+    httpInfo.value = null
+  } catch (error) {
+    toast.error(settings.t('files.httpStopFailed'), errorMessage(error))
+  } finally {
+    httpBusy.value = false
+  }
+}
+
+async function copyHttp() {
+  if (!httpInfo.value) return
+  await copyText(httpInfo.value.url)
+  toast.success(settings.t('toast.copied'))
+}
+
+async function openHttp() {
+  if (!httpInfo.value) return
+  await openExternal(httpInfo.value.url)
+}
+
 function openFolderDialog() {
-  if (files.scope === 'resources') return
   folderName.value = ''
   folderError.value = ''
   folderOpen.value = true
@@ -403,7 +552,7 @@ watch(viewerMode, () => {
 
 onMounted(async () => {
   if (!platform.ready) await platform.init()
-  if (!files.loaded) await files.load('')
+  await files.load('', 'workspace')
   window.addEventListener('click', onWindowClick)
   window.addEventListener('keydown', onKeydown)
 })
@@ -423,11 +572,25 @@ onUnmounted(() => {
         <p class="page-subtitle">{{ settings.t('files.subtitle') }}</p>
       </div>
       <div class="head-actions">
+        <input ref="importInput" class="hidden-file-input" type="file" multiple @change="onImportChange" />
+        <button v-if="isAndroid" class="btn btn--outline btn--sm" :disabled="importBusy" @click="openImport">
+          <Loader2 v-if="importBusy" :size="14" class="spinning" />
+          <FileUp v-else :size="14" />
+          {{ settings.t('files.import') }}
+        </button>
+        <button class="btn btn--outline btn--sm" @click="openHttpConfirm">
+          <Server :size="14" />
+          {{ settings.t('files.httpServer') }}
+        </button>
+        <button class="btn btn--outline btn--sm" @click="exportZip">
+          <Upload :size="14" />
+          {{ settings.t('files.export') }}
+        </button>
         <button class="btn btn--outline btn--sm" @click="files.refresh()">
           <RefreshCw :size="14" :class="{ spinning: files.loading }" />
           {{ settings.t('files.refresh') }}
         </button>
-        <button v-if="files.scope === 'workspace'" class="btn btn--primary btn--sm" @click="openFolderDialog">
+        <button class="btn btn--primary btn--sm" @click="openFolderDialog">
           <FolderPlus :size="14" />
           {{ settings.t('files.newFolder') }}
         </button>
@@ -438,19 +601,12 @@ onUnmounted(() => {
       <div class="workspace-head__path">
         <span class="workspace-head__icon"><HardDrive :size="18" /></span>
         <div>
-          <span class="workspace-head__label">
-            {{ files.scope === 'resources' ? settings.t('files.scopeResources') : settings.t('home.workdir') }}
-          </span>
+          <span class="workspace-head__label">{{ settings.t('home.workdir') }}</span>
           <div
             class="workspace-head__value mono"
-            :title="files.scope === 'resources' ? platform.paths.resourcesDir : platform.paths.pm3Dir"
+            :title="platform.paths.pm3Dir"
           >
-            {{
-              shortPath(
-                (files.scope === 'resources' ? platform.paths.resourcesDir : platform.paths.pm3Dir) || '—',
-                74,
-              )
-            }}
+            {{ shortPath(platform.paths.pm3Dir || '—', 74) }}
           </div>
         </div>
       </div>
@@ -462,23 +618,6 @@ onUnmounted(() => {
         <span class="mono">{{ formatBytes(files.totalSize) }}</span>
       </div>
     </section>
-
-    <div class="scope-switch">
-      <button
-        class="scope-switch__item"
-        :class="{ 'scope-switch__item--active': files.scope === 'workspace' }"
-        @click="files.setScope('workspace')"
-      >
-        {{ settings.t('files.scopeWorkspace') }}
-      </button>
-      <button
-        class="scope-switch__item"
-        :class="{ 'scope-switch__item--active': files.scope === 'resources' }"
-        @click="files.setScope('resources')"
-      >
-        {{ settings.t('files.scopeResources') }}
-      </button>
-    </div>
 
     <div class="browser">
       <div class="browser__toolbar">
@@ -550,13 +689,12 @@ onUnmounted(() => {
       <div v-else-if="files.isEmpty" class="empty-state">
         <span class="empty-icon"><FolderOpen :size="23" /></span>
         <span class="empty-title">
-          {{ files.scope === 'resources' ? settings.t('files.resourcesEmpty') : settings.t('files.emptyTitle') }}
+          {{ settings.t('files.emptyTitle') }}
         </span>
         <p class="empty-body">
-          {{ files.scope === 'resources' ? settings.t('files.resourcesEmptyBody') : settings.t('files.emptyBody') }}
+          {{ settings.t('files.emptyBody') }}
         </p>
         <button
-          v-if="files.scope === 'workspace'"
           class="btn btn--sm empty-action"
           @click="openFolderDialog"
         >
@@ -597,7 +735,7 @@ onUnmounted(() => {
           </button>
           <span class="file-row__size mono">{{ entry.isDir ? '—' : formatBytes(entry.size) }}</span>
           <span class="file-row__date">{{ dateLabel(entry.modified) }}</span>
-          <div v-if="files.scope === 'workspace'" class="file-row__actions">
+          <div  class="file-row__actions">
             <button class="icon-btn row-action" :title="settings.t('files.moreActions')" @click="toggleMenu($event, entry)">
               <MoreHorizontal :size="17" />
             </button>
@@ -812,12 +950,147 @@ onUnmounted(() => {
         </button>
       </template>
     </Modal>
+
+    <Modal
+      :open="httpConfirmOpen"
+      :title="settings.t('files.httpTitle')"
+      @close="httpConfirmOpen = false"
+    >
+      <div class="danger-callout">
+        <span class="danger-callout__icon"><ShieldAlert :size="20" /></span>
+        <p>{{ settings.t('files.httpWarningBody') }}</p>
+      </div>
+      <p v-if="httpError" class="form-error">{{ httpError }}</p>
+      <template #foot>
+        <button class="btn btn--outline" @click="httpConfirmOpen = false">{{ settings.t('common.cancel') }}</button>
+        <button class="btn btn--primary" :disabled="httpBusy" @click="startHttp">
+          <span v-if="httpBusy" class="spinner spinner--sm" />
+          <Server v-else :size="15" />
+          {{ settings.t('files.httpStart') }}
+        </button>
+      </template>
+    </Modal>
+
+    <Modal
+      :open="httpOpen"
+      :title="settings.t('files.httpRunning')"
+      :close-on-backdrop="false"
+      :close-on-escape="false"
+      @close="closeHttp"
+    >
+      <div v-if="httpInfo" class="http-info">
+        <div class="http-info__row">
+          <span>{{ settings.t('files.httpAddress') }}</span>
+          <strong class="mono">{{ httpInfo.url }}</strong>
+        </div>
+        <div class="http-info__row">
+          <span>{{ settings.t('files.httpToken') }}</span>
+          <strong class="mono">{{ httpInfo.token }}</strong>
+        </div>
+        <p>{{ settings.t('files.httpWarningBody') }}</p>
+      </div>
+      <template #foot>
+        <button class="btn btn--outline" :disabled="httpBusy" @click="copyHttp">
+          <Copy :size="14" />
+          {{ settings.t('files.httpCopy') }}
+        </button>
+        <button class="btn btn--primary" :disabled="httpBusy" @click="openHttp">
+          <Globe2 :size="14" />
+          {{ settings.t('files.httpOpen') }}
+        </button>
+        <button class="btn btn--danger" :disabled="httpBusy" @click="closeHttp">
+          <span v-if="httpBusy" class="spinner spinner--sm" />
+          <X v-else :size="14" />
+          {{ settings.t('files.httpStop') }}
+        </button>
+      </template>
+    </Modal>
+
+    <Modal
+      :open="exportOpen"
+      :title="settings.t('files.export')"
+      @close="closeExport"
+    >
+      <div class="export-progress">
+        <span v-if="exportBusy" class="spinner" />
+        <Check v-else :size="22" />
+        <div>
+          <strong>{{ exportBusy ? settings.t('files.exporting') : settings.t('files.exportSuccess') }}</strong>
+          <p v-if="exportResult" class="mono">{{ exportResult }}</p>
+        </div>
+      </div>
+      <template #foot>
+        <button class="btn btn--primary" :disabled="exportBusy" @click="exportOpen = false">
+          {{ settings.t('common.close') }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <style scoped>
 .files-page {
   padding-bottom: 72px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.export-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 70px;
+}
+
+.export-progress strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.export-progress p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.http-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.http-info__row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-inset);
+}
+
+.http-info__row > span {
+  color: var(--faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.http-info__row > strong {
+  color: var(--accent);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.http-info > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
 }
 
 .spinning {

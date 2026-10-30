@@ -9,6 +9,7 @@ Default permissions for the Android transport bridge
 - `allow-list-spp`
 - `allow-open-spp`
 - `allow-scan-spp`
+- `allow-share-file`
 - `allow-write`
 - `allow-close`
 - `allow-register-listener`
@@ -227,6 +228,32 @@ Enables the scan_spp command without any pre-configured scope.
 <td>
 
 Denies the scan_spp command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:allow-share-file`
+
+</td>
+<td>
+
+Enables the share_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transport:deny-share-file`
+
+</td>
+<td>
+
+Denies the share_file command without any pre-configured scope.
 
 </td>
 </tr>

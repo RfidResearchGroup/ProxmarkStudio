@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -24,6 +25,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.FileProvider
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -33,6 +35,7 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.File
 import java.util.UUID
 import java.util.LinkedHashMap
 import java.util.concurrent.CountDownLatch
@@ -47,6 +50,13 @@ private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34
 class OpenUsbArgs {
     lateinit var path: String
     var baudRate: Int = 115200
+}
+
+@InvokeArg
+class ShareFileArgs {
+    lateinit var path: String
+    var mime: String = "application/octet-stream"
+    var name: String = ""
 }
 
 @InvokeArg
@@ -117,6 +127,38 @@ class TransportPlugin(private val activity: Activity) : Plugin(activity) {
         } catch (_: Exception) {
         }
         super.onDestroy()
+    }
+
+    @Command
+    fun shareFile(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(ShareFileArgs::class.java)
+            val source = File(args.path)
+            if (!source.isFile) return invoke.reject("The file does not exist.")
+            val safeName = (args.name.ifBlank { source.name })
+                .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            val shareDir = File(activity.cacheDir, "shared").apply { mkdirs() }
+            val target = File(shareDir, safeName)
+            source.copyTo(target, overwrite = true)
+            val uri = FileProvider.getUriForFile(
+                activity,
+                "${activity.packageName}.fileprovider",
+                target,
+            )
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = args.mime.ifBlank { "application/octet-stream" }
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newUri(activity.contentResolver, "Proxmark Studio file", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(send, "Share").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(chooser)
+            invoke.resolve()
+        } catch (error: Exception) {
+            invoke.reject(error.message ?: "Could not share the file")
+        }
     }
 
     @Command

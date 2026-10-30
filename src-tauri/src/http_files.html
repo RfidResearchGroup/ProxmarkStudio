@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proxmark Studio · Workspace</title>
+<style>
+:root{color-scheme:dark;--bg:#050810;--panel:#0c1422;--line:#22324a;--text:#dbe7f7;--muted:#7d93b0;--accent:#4cf0c8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input{font:inherit}button{cursor:pointer}
+header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--line);background:#09111d;position:sticky;top:0;z-index:5}
+.brand{font-weight:700;letter-spacing:.08em;color:var(--accent);margin-right:6px}
+.crumbs{display:flex;align-items:center;gap:4px;flex:1;min-width:180px;overflow:auto;white-space:nowrap}
+.crumbs button{background:none;border:0;color:var(--muted);padding:4px 6px;border-radius:5px}.crumbs button:hover{color:var(--text);background:#152238}
+.toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.toolbar button,.toolbar select{background:#101c2d;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+.toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+.toolbar .primary{background:var(--accent);color:#041410;border-color:var(--accent);font-weight:700}
+main{padding:16px 18px 80px}
+.drop{border:1px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted);margin-bottom:14px}
+.drop.over{border-color:var(--accent);background:#0c1d20;color:var(--accent)}
+.meta{display:flex;gap:12px;color:var(--muted);font-size:12px;margin-bottom:10px}
+.file-area{position:relative;min-height:160px;user-select:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px}
+.list{display:flex;flex-direction:column;gap:4px}
+.item{position:relative;border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:10px;min-width:0;cursor:default}
+.list .item{display:flex;align-items:center;gap:10px;padding:8px 10px}
+.item:hover{border-color:#3b5578}.item.sel{border-color:var(--accent);background:#0d2526}
+.item .icon{font-size:24px;line-height:1;flex:none}.list .icon{font-size:19px}
+.item .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item .sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .name{flex:1}.list .sub{flex:none}
+.item .actions{position:absolute;right:6px;top:6px;display:none;gap:3px}.item:hover .actions,.item.sel .actions{display:flex}
+.actions button{border:1px solid var(--line);background:#0b1524;color:var(--muted);border-radius:5px;padding:3px 5px;font-size:11px}
+.grid .item .actions{bottom:6px;top:auto}
+.empty{color:var(--muted);text-align:center;padding:40px 10px}
+#marquee{position:fixed;border:1px solid var(--accent);background:rgba(76,240,200,.12);pointer-events:none;display:none;z-index:9}
+.toast{position:fixed;right:18px;bottom:18px;background:#122235;border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);max-width:360px;display:none;z-index:20}
+.toast.err{border-color:#ff6b81;color:#ffb3be}
+@media(max-width:600px){header{padding:10px}.brand{display:none}main{padding:10px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">PM3 STUDIO</span>
+  <nav class="crumbs" id="crumbs"></nav>
+  <div class="toolbar">
+    <button id="uploadBtn">Upload</button>
+    <button id="mkdirBtn">New folder</button>
+    <button id="layoutBtn">Grid</button>
+    <select id="sort">
+      <option value="name">Name</option><option value="size">Size</option><option value="modified">Modified</option>
+    </select>
+    <button id="deleteBtn" disabled>Delete</button>
+    <button id="moveBtn" disabled>Move</button>
+    <input id="fileInput" type="file" multiple hidden>
+  </div>
+</header>
+<main>
+  <div class="drop" id="drop">Drop files here to upload · or use “Upload”</div>
+  <div class="meta"><span id="count"></span><span id="path"></span></div>
+  <div class="file-area" id="area"><div id="files" class="grid"></div><div class="empty" id="empty" hidden>This folder is empty.</div></div>
+</main>
+<div id="marquee"></div><div class="toast" id="toast"></div>
+<script>
+(() => {
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const $ = (id) => document.getElementById(id);
+  const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name' };
+  const api = (path, options) => { const url = new URL(path, location.origin); url.searchParams.set('token', token); return fetch(url, options); };
+  const fmt = (n) => { if (n < 1024) return n + ' B'; if (n < 1048576) return (n/1024).toFixed(1) + ' KB'; return (n/1048576).toFixed(1) + ' MB'; };
+  const toast = (text, err) => { const el = $('toast'); el.textContent = text; el.className = 'toast' + (err ? ' err' : ''); el.style.display = 'block'; clearTimeout(toast.timer); toast.timer = setTimeout(() => el.style.display = 'none', 4200); };
+  const parent = (p) => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+  const join = (p, name) => p ? p + '/' + name : name;
+
+  async function load(path = state.path) {
+    const res = await api('/api/list?path=' + encodeURIComponent(path));
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || 'Could not list folder', true);
+    state.path = path; state.entries = data.entries || []; state.selected.clear();
+    render();
+  }
+  function sorted() {
+    const list = [...state.entries];
+    list.sort((a,b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      let r = state.sort === 'size' ? a.size-b.size : state.sort === 'modified' ? a.modified-b.modified : a.name.localeCompare(b.name, undefined, {numeric:true,sensitivity:'base'});
+      return r;
+    });
+    return list;
+  }
+  function render() {
+    const root = $('files'); root.className = state.layout;
+    $('layoutBtn').textContent = state.layout === 'grid' ? 'List' : 'Grid';
+    $('empty').hidden = state.entries.length > 0;
+    $('count').textContent = state.entries.length + ' items';
+    $('path').textContent = '/' + state.path;
+    $('deleteBtn').disabled = !state.selected.size;
+    $('moveBtn').disabled = !state.selected.size;
+    const crumbs = $('crumbs'); crumbs.innerHTML = '';
+    const rootBtn = document.createElement('button'); rootBtn.textContent = 'Workspace'; rootBtn.onclick = () => load(''); crumbs.append(rootBtn);
+    let acc = '';
+    state.path.split('/').filter(Boolean).forEach((part) => { acc = join(acc, part); const b = document.createElement('button'); b.textContent = ' / ' + part; b.onclick = () => load(acc); crumbs.append(b); });
+    root.innerHTML = '';
+    sorted().forEach((entry) => {
+      const node = document.createElement('div'); node.className = 'item' + (state.selected.has(entry.path) ? ' sel' : '');
+      node.dataset.path = entry.path;
+      node.innerHTML = `<div class="icon">${entry.isDir ? '📁' : '📄'}</div><div style="min-width:0"><div class="name"></div><div class="sub"></div></div><div class="actions"><button data-act="download" title="Download">↓</button><button data-act="rename" title="Rename">✎</button><button data-act="delete" title="Delete">✕</button></div>`;
+      node.querySelector('.name').textContent = entry.name;
+      node.querySelector('.sub').textContent = entry.isDir ? 'folder' : fmt(entry.size);
+      node.addEventListener('click', (e) => { if (e.button !== 0) return; if (e.ctrlKey || e.metaKey || e.shiftKey) { state.selected.has(entry.path) ? state.selected.delete(entry.path) : state.selected.add(entry.path); render(); } });
+      node.addEventListener('dblclick', () => entry.isDir ? load(entry.path) : download(entry));
+      node.querySelector('[data-act="download"]').onclick = (e) => { e.stopPropagation(); entry.isDir ? downloadFolder(entry) : download(entry); };
+      node.querySelector('[data-act="rename"]').onclick = (e) => { e.stopPropagation(); rename(entry); };
+      node.querySelector('[data-act="delete"]').onclick = (e) => { e.stopPropagation(); remove(entry); };
+      root.append(node);
+    });
+  }
+  async function download(entry) { const a = document.createElement('a'); a.href = '/api/download?path=' + encodeURIComponent(entry.path) + '&token=' + encodeURIComponent(token); a.download = entry.name; document.body.append(a); a.click(); a.remove(); }
+  async function downloadFolder(entry) { toast('Folder download is not available yet; open the folder to download files.'); }
+  async function remove(entry) { if (!confirm('Delete ' + entry.name + '?')) return; const res = await api('/api/delete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:entry.path})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Delete failed', true); await load(); }
+  async function rename(entry) { const name = prompt('New name', entry.name); if (!name || name === entry.name) return; const res = await api('/api/move', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:entry.path,target:parent(entry.path),name})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Rename failed', true); await load(); }
+  async function upload(files, overwrite = false) {
+    if (!files.length) return;
+    const form = new FormData(); for (const file of files) form.append('files', file, file.name);
+    const res = await api('/api/upload?path=' + encodeURIComponent(state.path) + '&overwrite=' + (overwrite ? '1' : '0'), {method:'POST',body:form});
+    if (res.status === 409 && !overwrite) { if (confirm('Some files already exist. Overwrite them?')) return upload(files, true); return; }
+    const data = await res.json().catch(() => ({})); if (!res.ok) return toast(data.error || 'Upload failed', true); toast('Upload complete'); await load();
+  }
+  async function mkdir() { const name = prompt('Folder name'); if (!name) return; const res = await api('/api/mkdir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({parent:state.path,name})}); const data = await res.json(); if (!res.ok) return toast(data.error || 'Could not create folder', true); await load(); }
+  async function batchDelete() { if (!state.selected.size || !confirm('Delete ' + state.selected.size + ' selected item(s)?')) return; for (const path of [...state.selected]) { await api('/api/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}); } await load(); }
+  async function batchMove() { if (!state.selected.size) return; const target = prompt('Move ' + state.selected.size + ' item(s) to folder path', state.path); if (target === null) return; for (const path of [...state.selected]) { await api('/api/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:path,target,name:path.split('/').pop()})}); } await load(); }
+  $('uploadBtn').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = (e) => { upload([...e.target.files]); e.target.value = ''; };
+  $('mkdirBtn').onclick = mkdir;
+  $('layoutBtn').onclick = () => { state.layout = state.layout === 'grid' ? 'list' : 'grid'; render(); };
+  $('sort').onchange = (e) => { state.sort = e.target.value; render(); };
+  $('deleteBtn').onclick = batchDelete; $('moveBtn').onclick = batchMove;
+  const drop = $('drop'); drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave = () => drop.classList.remove('over'); drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); upload([...e.dataTransfer.files]); };
+  const area = $('area'); let drag = null;
+  area.addEventListener('mousedown', (e) => { if (e.button !== 0 || e.target.closest('.item')) return; drag = {x:e.clientX,y:e.clientY}; state.selected.clear(); render(); });
+  window.addEventListener('mousemove', (e) => { if (!drag) return; const box = $('marquee'); const left = Math.min(drag.x,e.clientX), top = Math.min(drag.y,e.clientY), right = Math.max(drag.x,e.clientX), bottom = Math.max(drag.y,e.clientY); box.style.cssText = `display:block;left:${left}px;top:${top}px;width:${right-left}px;height:${bottom-top}px`; document.querySelectorAll('.item').forEach((node) => { const r = node.getBoundingClientRect(); const hit = r.left < right && r.right > left && r.top < bottom && r.bottom > top; if (hit) state.selected.add(node.dataset.path); else state.selected.delete(node.dataset.path); }); render(); });
+  window.addEventListener('mouseup', () => { drag = null; $('marquee').style.display = 'none'; });
+  load('');
+})();
+</script>
+</body>
+</html>

@@ -767,7 +767,7 @@ onUnmounted(() => {
 
 <style scoped>
 .home {
-  padding-bottom: 72px;
+  padding-bottom: 16px;
 }
 
 .spinning {

@@ -69,6 +69,22 @@ export interface ListDirResult {
 
 export type ReadMode = 'text' | 'hex'
 
+export interface ImportFilePayload {
+  name: string
+  data: string
+}
+
+export interface ImportResult {
+  imported: number
+  names: string[]
+}
+
+export interface ExportResult {
+  path: string
+  name: string
+  size: number
+}
+
 export interface ReadFileResult {
   name: string
   path: string
@@ -165,6 +181,57 @@ export async function movePath(source: string, target: string, name: string): Pr
 export async function createFolder(parent: string, name: string): Promise<string> {
   if (!isTauri) return mockCreateFolder(parent, name)
   return invoke<string>('create_folder', { parent, name })
+}
+
+export async function importFiles(
+  scope: FileScope,
+  dir: string,
+  files: ImportFilePayload[],
+  overwrite: boolean,
+): Promise<ImportResult> {
+  if (!isTauri) throw new Error('Import requires the Proxmark Studio app.')
+  return invoke<ImportResult>('import_files', { scope, dir, files, overwrite })
+}
+
+export async function exportWorkspaceZip(destination?: string): Promise<ExportResult> {
+  if (!isTauri) throw new Error('Export requires the Proxmark Studio app.')
+  return invoke<ExportResult>('export_workspace_zip', { destination: destination ?? null })
+}
+
+export async function pickExportDirectory(): Promise<string | null> {
+  if (!isTauri || isAndroid) return null
+  return invoke<string | null>('pick_export_directory')
+}
+
+export interface HttpInfo {
+  url: string
+  port: number
+  token: string
+  addresses: string[]
+}
+
+export async function startHttpServer(): Promise<HttpInfo> {
+  if (!isTauri) throw new Error('The HTTP server requires the Proxmark Studio app.')
+  return invoke<HttpInfo>('start_http_server')
+}
+
+export async function stopHttpServer(): Promise<void> {
+  if (!isTauri) return
+  await invoke('stop_http_server')
+}
+
+export async function httpServerStatus(): Promise<string | null> {
+  if (!isTauri) return null
+  return invoke<string | null>('http_server_status')
+}
+
+export async function shareFile(path: string, mime: string, name: string): Promise<void> {
+  if (!isTauri) throw new Error('Sharing requires the Proxmark Studio app.')
+  if (isAndroid) {
+    await invoke('plugin:transport|share_file', { path, mime, name })
+    return
+  }
+  await invoke('plugin:share|share_file', { path, mime })
 }
 
 export async function revealPath(path: string): Promise<void> {

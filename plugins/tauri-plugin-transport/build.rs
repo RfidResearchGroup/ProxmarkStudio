@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "list_spp",
     "open_spp",
     "scan_spp",
+    "share_file",
     "write",
     "close",
     "register_listener",
