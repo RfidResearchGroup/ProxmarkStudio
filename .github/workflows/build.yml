@@ -349,6 +349,26 @@ jobs:
           CODE_SIGN_IDENTITY: ""
         run: |
           pnpm tauri ios init --ci
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user pyyaml
+          python3 - <<'PY'
+          import yaml
+          path = 'src-tauri/gen/apple/project.yml'
+          with open(path, encoding='utf-8') as handle:
+              spec = yaml.safe_load(handle)
+          for target in spec.get('targets', {}).values():
+              if target.get('type') != 'application':
+                  continue
+              settings = target.setdefault('settings', {}).setdefault('base', {})
+              flags = settings.get('OTHER_LDFLAGS', [])
+              if isinstance(flags, str):
+                  flags = [flags]
+              if '-lz' not in flags:
+                  flags.append('-lz')
+              settings['OTHER_LDFLAGS'] = flags
+          with open(path, 'w', encoding='utf-8') as handle:
+              yaml.safe_dump(spec, handle, sort_keys=False)
+          PY
+          (cd src-tauri/gen/apple && xcodegen generate)
           SIGN_ARG="--no-sign"
           if ! pnpm tauri ios build --help 2>&1 | grep -q -- '--no-sign'; then
             SIGN_ARG=""
