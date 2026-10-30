@@ -49,6 +49,11 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
 .dialog-backdrop{position:fixed;inset:0;background:rgba(2,6,12,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}
 .dialog{width:min(420px,100%);padding:18px;border:1px solid var(--line);border-radius:14px;background:#0c1726;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .dialog h2{margin:0 0 8px;font-size:16px}.dialog p{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.55}.dialog input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:#07111d;color:var(--text);font:inherit}.dialog__foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.dialog__foot button{padding:7px 12px;border:1px solid var(--line);border-radius:7px;background:#101c2d;color:var(--text)}.dialog__foot .primary{border-color:var(--accent);background:var(--accent);color:#041410;font-weight:700}.dialog__foot .danger{border-color:#ff6b81;color:#ffb3be}
+.move-dialog{width:min(560px,100%)}
+.move-crumbs{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin:10px 0;padding:6px;border:1px solid var(--line);border-radius:8px;background:#07111d;font-size:12px}
+.move-crumbs button{border:0;background:none;color:var(--muted);padding:3px 5px;border-radius:4px}.move-crumbs button:hover{background:#17273b;color:var(--text)}.move-crumbs .current{color:var(--accent)}
+.move-list{display:flex;flex-direction:column;gap:5px;max-height:min(48vh,360px);overflow:auto;margin-bottom:6px;padding:2px}
+.move-folder{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);text-align:left}.move-folder:hover{border-color:var(--accent);background:#0d2526}.move-folder:disabled{opacity:.35;cursor:not-allowed}.move-folder .arrow{margin-left:auto;color:var(--muted)}.move-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px}.move-note{margin:4px 0 0;color:#ffb3be;font-size:11.5px}
 .drop-hint{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d2928;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:8px 12px;display:none;z-index:30;font-size:12px;pointer-events:none}
 @media(max-width:600px){header{padding:10px}.brand{display:none}.crumbs{flex:0 1 auto;order:2;max-width:calc(100vw - 20px);width:fit-content}main{padding:10px 10px 16px}.file-area{padding:4px}.grid{grid-template-columns:1fr}.item{display:flex;align-items:center;gap:10px;padding:11px 10px}.item>div:not(.icon):not(.actions){flex:1;min-width:0}.item .actions{position:static;display:flex!important;margin-left:auto;padding-left:4px;order:2}.item .icon{order:3}.item .actions button{min-width:28px;min-height:28px}.list .item{padding:9px}.upload-item{min-height:46px;justify-content:flex-start;padding:11px 10px}.toolbar{width:100%;max-width:100%;gap:4px}.toolbar button{flex:1 1 0;padding:6px 7px;min-width:0}.toolbar select{flex:1 1 0;min-width:0}#deleteBtn,#moveBtn{display:none}}
 </style>
@@ -83,6 +88,17 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     </div>
   </div>
 </div>
+<div class="dialog-backdrop" id="moveBackdrop">
+  <div class="dialog move-dialog" role="dialog" aria-modal="true">
+    <h2 id="moveTitle"></h2>
+    <div class="move-crumbs" id="moveCrumbs"></div>
+    <div class="move-list" id="moveList"></div>
+    <div class="dialog__foot">
+      <button id="moveCancel"></button>
+      <button id="moveConfirm" class="primary" disabled></button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div class="drop-hint" id="dropHint"></div>
 <input id="fileInput" type="file" multiple hidden>
@@ -100,7 +116,8 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       invalidTarget: 'Invalid destination.', items: '{count} items', hint: 'Right-click for more actions · Ctrl/⌘ click or drag to select',
       overwrite: 'Some files already exist. Overwrite them?', folder: 'Folder', noAccess: 'Not available',
       layoutGrid: 'Switch to grid layout', layoutList: 'Switch to list layout', copied: 'Copied', up: 'Up one level',
-      cancel: 'Cancel', confirm: 'Confirm', deleteTitle: 'Delete', renameTitle: 'Rename', moveTitle: 'Move', newFolderTitle: 'New folder', uploadTitle: 'Upload', moveHere: 'Move here'
+      cancel: 'Cancel', confirm: 'Confirm', deleteTitle: 'Delete', renameTitle: 'Rename', moveTitle: 'Move', newFolderTitle: 'New folder', uploadTitle: 'Upload', moveHere: 'Move here',
+      noFolders: 'No subfolders here', moveBlocked: 'A folder cannot be moved inside itself or one of its subfolders.', moving: 'Moving…'
     },
     zh: {
       documentTitle: 'Proxmark Studio · 工作区', workspace: '工作区', upload: '上传', newFolder: '新建文件夹',
@@ -113,7 +130,8 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       invalidTarget: '目标位置无效。', items: '{count} 项', hint: '右键更多操作 · Ctrl/⌘ 点击或拖动框选',
       overwrite: '部分文件已存在，是否覆盖？', folder: '文件夹', noAccess: '不可用',
       layoutGrid: '切换为网格排版', layoutList: '切换为列表排版', copied: '已复制', up: '返回上一级',
-      cancel: '取消', confirm: '确定', deleteTitle: '删除', renameTitle: '重命名', moveTitle: '移动', newFolderTitle: '新建文件夹', uploadTitle: '上传', moveHere: '移动到这里'
+      cancel: '取消', confirm: '确定', deleteTitle: '删除', renameTitle: '重命名', moveTitle: '移动', newFolderTitle: '新建文件夹', uploadTitle: '上传', moveHere: '移动到这里',
+      noFolders: '这里没有子文件夹', moveBlocked: '不能把文件夹移动到自身或其子文件夹中。', moving: '移动中……'
     }
   };
   const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name', context: null, dragPath: '', moveSource: '' };
@@ -152,6 +170,77 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
   }
   const askText = (title, value = '') => askDialog({ title, input: true, value });
   const askConfirm = (title, body = '', danger = false) => askDialog({ title, body, danger });
+
+  const moveState = { sources: [], target: '', folders: [], busy: false };
+  function moveTargetInvalid(target) {
+    return moveState.sources.some((source) => target === source || target.startsWith(source + '/'));
+  }
+  function moveTargetNoop(target) {
+    return moveState.sources.every((source) => target === parent(source));
+  }
+  function renderMoveDialog() {
+    $('moveTitle').textContent = t('moveTitle') + ' · ' + moveState.sources.length;
+    const crumbs = $('moveCrumbs'); crumbs.innerHTML = '';
+    const up = document.createElement('button'); up.textContent = '↑'; up.title = t('up'); up.disabled = !moveState.target; up.onclick = () => loadMoveFolders(parent(moveState.target)); crumbs.append(up);
+    const rootBtn = document.createElement('button'); rootBtn.textContent = t('root'); rootBtn.className = moveState.target ? '' : 'current'; rootBtn.onclick = () => loadMoveFolders(''); crumbs.append(rootBtn);
+    let acc = ''; const parts = moveState.target.split('/').filter(Boolean);
+    parts.forEach((part, index) => {
+      acc = join(acc, part); const target = acc;
+      const sep = document.createElement('span'); sep.textContent = '/'; sep.className = 'crumb-sep'; crumbs.append(sep);
+      const b = document.createElement('button'); b.textContent = part; b.className = index === parts.length - 1 ? 'current' : ''; b.onclick = () => loadMoveFolders(target); crumbs.append(b);
+    });
+    const list = $('moveList'); list.innerHTML = '';
+    if (!moveState.folders.length) { const empty = document.createElement('div'); empty.className = 'move-empty'; empty.textContent = t('noFolders'); list.append(empty); }
+    moveState.folders.forEach((folder) => {
+      const button = document.createElement('button'); button.className = 'move-folder';
+      button.disabled = moveTargetInvalid(folder.path);
+      button.innerHTML = `<span>📁</span><span>${folder.name}</span><span class="arrow">›</span>`;
+      button.onclick = () => loadMoveFolders(folder.path); list.append(button);
+    });
+    const invalid = moveTargetInvalid(moveState.target) || moveTargetNoop(moveState.target);
+    const note = document.createElement('p'); note.className = 'move-note'; note.textContent = invalid ? t('moveBlocked') : '';
+    list.append(note);
+    const confirm = $('moveConfirm'); confirm.textContent = moveState.busy ? t('moving') : t('moveHere'); confirm.disabled = moveState.busy || invalid;
+  }
+  async function loadMoveFolders(path) {
+    moveState.target = path;
+    try {
+      const res = await api('/api/list?path=' + encodeURIComponent(path));
+      const data = await res.json();
+      if (!res.ok) return toast(data.error || t('uploadFailed'), true);
+      moveState.folders = (data.entries || []).filter((entry) => entry.isDir);
+    } catch (error) {
+      moveState.folders = []; toast(String(error || t('uploadFailed')), true);
+    }
+    renderMoveDialog();
+  }
+  async function openMoveDialog(entry) {
+    const sources = state.selected.size > 1 && state.selected.has(entry.path) ? [...state.selected] : [entry.path];
+    if (!sources.length) return;
+    moveState.sources = sources; moveState.target = ''; moveState.folders = []; moveState.busy = false;
+    $('moveCancel').textContent = t('cancel');
+    $('moveBackdrop').style.display = 'flex';
+    await loadMoveFolders('');
+  }
+  async function closeMoveDialog() {
+    if (moveState.busy) return;
+    $('moveBackdrop').style.display = 'none';
+  }
+  async function confirmMoveDialog() {
+    if (moveState.busy || moveTargetInvalid(moveState.target) || moveTargetNoop(moveState.target)) return;
+    moveState.busy = true; renderMoveDialog();
+    try {
+      for (const source of moveState.sources) {
+        if (moveState.target === parent(source)) continue;
+        const res = await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, target: moveState.target, name: source.split('/').pop() }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) toast(data.error || t('uploadFailed'), true);
+      }
+      $('moveBackdrop').style.display = 'none'; await load();
+    } finally {
+      moveState.busy = false; renderMoveDialog();
+    }
+  }
 
   const syncChrome = () => {
     document.title = t('documentTitle'); $('langBtn').textContent = lang === 'en' ? '中文' : 'EN';
@@ -289,9 +378,8 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
   }
   async function batchMove() {
     if (!state.selected.size) return;
-    const target = await askText(t('moveTitle'), state.path); if (target === null) return;
-    for (const path of [...state.selected]) await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: path, target, name: path.split('/').pop() }) });
-    await load();
+    const entry = { path: [...state.selected][0] };
+    await openMoveDialog(entry);
   }
   function openContext(x, y, entry) {
     state.context = entry || null;
@@ -302,7 +390,7 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     add(t('newFolder'), mkdir);
     if (entry) {
       add(t('rename'), () => rename(entry));
-      add(t('move'), () => { state.selected.clear(); state.selected.add(entry.path); batchMove(); });
+      add(t('move'), () => openMoveDialog(entry));
       add(t('delete'), () => remove(state.selected.size > 1 ? null : entry));
       menu.append(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
     }
@@ -339,7 +427,10 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
   $('dialogCancel').onclick = () => closeDialog(null);
   $('dialogConfirm').onclick = () => { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); };
   $('dialogBackdrop').addEventListener('mousedown', (e) => { if (e.target === e.currentTarget) closeDialog(null); });
-  window.addEventListener('keydown', (e) => { if (!dialogResolve) return; if (e.key === 'Escape') closeDialog(null); if (e.key === 'Enter') { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); } });
+  $('moveCancel').onclick = closeMoveDialog;
+  $('moveConfirm').onclick = confirmMoveDialog;
+  $('moveBackdrop').addEventListener('mousedown', (e) => { if (e.target === e.currentTarget) closeMoveDialog(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('moveBackdrop').style.display === 'flex') { closeMoveDialog(); return; } if (!dialogResolve) return; if (e.key === 'Escape') closeDialog(null); if (e.key === 'Enter') { const field = $('dialogInput'); closeDialog(field.style.display === 'none' ? true : field.value); } });
   const drag = { active: false, x: 0, y: 0, frame: 0 };
   area.addEventListener('mousedown', (e) => { if (e.button !== 0 || e.target.closest('.item') || window.matchMedia('(pointer: coarse)').matches) return; drag.active = true; drag.x = e.clientX; drag.y = e.clientY; state.selected.clear(); document.querySelectorAll('.item.sel').forEach((node) => node.classList.remove('sel')); });
   window.addEventListener('mousemove', (e) => {

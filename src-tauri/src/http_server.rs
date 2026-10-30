@@ -352,11 +352,23 @@ fn handle(mut request: Request, root: PathBuf, token: &str) {
                             .unwrap_or_else(|| from.file_name().unwrap_or_default().to_str().unwrap_or(""));
                         let relative = if target.is_empty() { name.to_string() } else { format!("{}/{}", target.trim_matches('/'), name) };
                         match safe_path(&root, &relative) {
-                            Ok(to) if !to.exists() => match fs::rename(from, to) {
-                                Ok(()) => json_response(serde_json::json!({ "ok": true }), 200),
-                                Err(error) => error_response(&error.to_string(), 500),
-                            },
-                            _ => error_response("The destination already exists.", 409),
+                            Ok(to) => {
+                                let descendant = to
+                                    .parent()
+                                    .and_then(|parent| parent.canonicalize().ok())
+                                    .is_some_and(|parent| parent.starts_with(&from));
+                                if from.is_dir() && (to == from || descendant) {
+                                    error_response("A folder cannot be moved inside itself or its subfolders.", 400)
+                                } else if to.exists() {
+                                    error_response("The destination already exists.", 409)
+                                } else {
+                                    match fs::rename(from, to) {
+                                        Ok(()) => json_response(serde_json::json!({ "ok": true }), 200),
+                                        Err(error) => error_response(&error.to_string(), 500),
+                                    }
+                                }
+                            }
+                            Err(error) => error_response(&error, 400),
                         }
                     }
                     Err(error) => error_response(&error, 404),
