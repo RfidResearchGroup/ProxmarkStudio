@@ -349,7 +349,7 @@ jobs:
           CODE_SIGN_IDENTITY: ""
         run: |
           pnpm tauri ios init --ci
-          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user pyyaml
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user --break-system-packages pyyaml
           python3 - <<'PY'
           import yaml
           path = 'src-tauri/gen/apple/project.yml'
