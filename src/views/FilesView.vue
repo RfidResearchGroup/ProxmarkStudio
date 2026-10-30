@@ -1213,6 +1213,10 @@ onUnmounted(() => {
   .head-actions__more-wrap {
     display: block;
   }
+
+  .files-page .head-actions {
+    margin-top: 28px;
+  }
 }
 
 .export-progress {
