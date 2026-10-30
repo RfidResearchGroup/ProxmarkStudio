@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,6 +14,7 @@ use crate::files::{safe_existing_path, safe_path, FileEntry};
 use crate::state::AppState;
 
 const HTML: &str = include_str!("http_files.html");
+const MAX_UPLOAD_BYTES: usize = 32 * 1024 * 1024;
 
 pub struct HttpHandle {
     stop: Arc<AtomicBool>,
@@ -257,9 +259,23 @@ fn handle(mut request: Request, root: PathBuf, token: &str) {
                 .find(|header| header.field.equiv("Content-Type"))
                 .map(|header| header.value.as_str().to_string())
                 .unwrap_or_default();
+            let declared_length = request
+                .headers()
+                .iter()
+                .find(|header| header.field.equiv("Content-Length"))
+                .and_then(|header| header.value.as_str().parse::<usize>().ok());
+            if declared_length.is_some_and(|length| length > MAX_UPLOAD_BYTES) {
+                let _ = request.respond(error_response("The upload is too large (limit 32 MB).", 413));
+                return;
+            }
             let mut body = Vec::new();
-            if let Err(error) = request.as_reader().read_to_end(&mut body) {
+            let mut reader = request.as_reader().take((MAX_UPLOAD_BYTES + 1) as u64);
+            if let Err(error) = reader.read_to_end(&mut body) {
                 let _ = request.respond(error_response(&error.to_string(), 400));
+                return;
+            }
+            if body.len() > MAX_UPLOAD_BYTES {
+                let _ = request.respond(error_response("The upload is too large (limit 32 MB).", 413));
                 return;
             }
             let files = parse_multipart(&body, &content_type);
@@ -385,7 +401,11 @@ pub async fn start_http_server(
     std::thread::spawn(move || {
         while !thread_stop.load(Ordering::SeqCst) {
             match server.recv_timeout(Duration::from_millis(250)) {
-                Ok(Some(request)) => handle(request, root.clone(), &thread_token),
+                Ok(Some(request)) => {
+                    let root = root.clone();
+                    let token = thread_token.clone();
+                    std::thread::spawn(move || handle(request, root, &token));
+                }
                 Ok(None) => {}
                 Err(_) => break,
             }
