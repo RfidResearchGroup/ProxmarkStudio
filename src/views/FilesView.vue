@@ -1326,6 +1326,30 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
+.http-info__row.http-info__row--address {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.http-info__row.http-info__row--address > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.http-info__row.http-info__row--address strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.http-info__row.http-info__row--address .icon-btn {
+  flex: none;
+}
+
 .http-info > p {
   margin: 0;
   color: var(--muted);

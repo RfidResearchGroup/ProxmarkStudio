@@ -1,4 +1,5 @@
 use std::fs;
+use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -49,6 +50,22 @@ fn network_interfaces() -> Vec<NetworkInterface> {
                 });
             }
         }
+    }
+    // Android's getifaddrs can return an empty list on some vendors. A
+    // route lookup to a public address still reports the active Wi-Fi or
+    // cellular source address without sending a packet.
+    for target in ["8.8.8.8:80", "1.1.1.1:80", "192.168.1.1:80"] {
+        let Ok(socket) = UdpSocket::bind("0.0.0.0:0") else { continue };
+        let Ok(()) = socket.connect(target) else { continue };
+        let Ok(local) = socket.local_addr() else { continue };
+        let ip = local.ip().to_string();
+        if ip.starts_with("127.") || interfaces.iter().any(|item| item.address == ip) {
+            continue;
+        }
+        interfaces.push(NetworkInterface {
+            name: "active network".to_string(),
+            address: ip,
+        });
     }
     interfaces.sort_by(|a, b| a.address.cmp(&b.address));
     interfaces
