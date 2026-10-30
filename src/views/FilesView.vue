@@ -1136,6 +1136,23 @@ onUnmounted(() => {
   padding-bottom: 72px;
 }
 
+.files-page .page-head {
+  align-items: flex-start;
+  flex-direction: row;
+}
+
+.files-page .page-head > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.files-page .head-actions {
+  width: auto;
+  margin-left: auto;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
 .hidden-file-input {
   display: none;
 }
