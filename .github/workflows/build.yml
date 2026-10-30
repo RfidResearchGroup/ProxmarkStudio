@@ -159,18 +159,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.host_bin }}" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.target_bin }}" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.host_bin }}" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           "${{ steps.msys2.outputs['msys2-location'] }}\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-
-      - name: Select MinGW host compiler
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $host = "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.host_bin }}"
-          $target = "${{ steps.msys2.outputs['msys2-location'] }}\${{ matrix.target_bin }}"
-          $usr = "${{ steps.msys2.outputs['msys2-location'] }}\usr\bin"
-          "PATH=$host;$target;$usr;$env:PATH" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Set up Proxmark3 plugin (Windows)
         if: runner.os == 'Windows'
