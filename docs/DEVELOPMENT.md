@@ -196,11 +196,11 @@ as workflow artifacts for 14 days.
 | Build | Version |
 | --- | --- |
 | `v*` tag | the tag without `v`, e.g. `v0.2.1` → `0.2.1` |
-| `main` / Latest development | the newest reachable `v*` tag; `0.0.0` if none exist |
-| Local developer build | `0.0.0-local` |
+| `main` / Latest development | the newest reachable `v*` tag; `0.0.1` if none exist |
+| Local developer build | `0.0.1-local` |
 
 CI injects the computed version into the Tauri config at build time. Local
-builds use the fixed `0.0.0-local` value committed in
+builds use the fixed `0.0.1-local` value committed in
 [`src-tauri/tauri.conf.json`](../src-tauri/tauri.conf.json). Set
 `PROXMARK_STUDIO_VERSION` to override the local default deliberately.
 

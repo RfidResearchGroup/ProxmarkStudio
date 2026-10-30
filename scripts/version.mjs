@@ -37,6 +37,6 @@ try {
 } catch {
   // A repository without tags (for example a fresh fork) has no release base.
 }
-const version = (latest || 'v0.0.0').replace(/^v/, '')
+const version = (latest || 'v0.0.1').replace(/^v/, '')
 if (!semver.test(version)) throw new Error(`Invalid version tag: ${latest}`)
 console.log(version)
