@@ -210,9 +210,19 @@ export interface HttpInfo {
   addresses: string[]
 }
 
-export async function startHttpServer(): Promise<HttpInfo> {
+export interface NetworkInterface {
+  name: string
+  address: string
+}
+
+export async function listNetworkInterfaces(): Promise<NetworkInterface[]> {
+  if (!isTauri) return []
+  return invoke<NetworkInterface[]>('list_network_interfaces')
+}
+
+export async function startHttpServer(password: string, bindAddress?: string): Promise<HttpInfo> {
   if (!isTauri) throw new Error('The HTTP server requires the Proxmark Studio app.')
-  return invoke<HttpInfo>('start_http_server')
+  return invoke<HttpInfo>('start_http_server', { password, bindAddress: bindAddress ?? null })
 }
 
 export async function stopHttpServer(): Promise<void> {

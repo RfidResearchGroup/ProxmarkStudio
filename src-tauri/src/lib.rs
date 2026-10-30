@@ -71,6 +71,7 @@ pub fn run() {
             http_server::start_http_server,
             http_server::stop_http_server,
             http_server::http_server_status,
+            http_server::list_network_interfaces,
             resources::check_resources,
             resources::get_release_info,
             resources::install_resources,

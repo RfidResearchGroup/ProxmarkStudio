@@ -1,9 +1,8 @@
 use std::fs;
-use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -29,31 +28,44 @@ pub struct HttpInfo {
     pub addresses: Vec<String>,
 }
 
-fn local_addresses() -> Vec<String> {
-    let mut addresses = Vec::new();
-    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
-        if socket.connect("8.8.8.8:80").is_ok() {
-            if let Ok(addr) = socket.local_addr() {
-                let ip = addr.ip().to_string();
-                if !ip.starts_with("127.") {
-                    addresses.push(ip);
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkInterface {
+    pub name: String,
+    pub address: String,
+}
+
+fn network_interfaces() -> Vec<NetworkInterface> {
+    let mut interfaces = Vec::new();
+    if let Ok(items) = get_if_addrs::get_if_addrs() {
+        for item in items {
+            if let std::net::IpAddr::V4(address) = item.addr.ip() {
+                if address.is_loopback() {
+                    continue;
                 }
+                interfaces.push(NetworkInterface {
+                    name: item.name,
+                    address: address.to_string(),
+                });
             }
         }
     }
+    interfaces.sort_by(|a, b| a.address.cmp(&b.address));
+    interfaces
+}
+
+fn local_addresses() -> Vec<String> {
+    let mut addresses = network_interfaces()
+        .into_iter()
+        .map(|interface| interface.address)
+        .collect::<Vec<_>>();
     addresses.push("127.0.0.1".to_string());
     addresses
 }
 
-fn random_token() -> String {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|value| value.as_nanos())
-        .unwrap_or(0);
-    let mut value = stamp ^ (std::process::id() as u128) << 64;
-    value ^= value >> 17;
-    value = value.wrapping_mul(0x9E3779B97F4A7C15);
-    format!("{:032x}", value)
+#[tauri::command]
+pub async fn list_network_interfaces() -> Result<Vec<NetworkInterface>, String> {
+    Ok(network_interfaces())
 }
 
 fn query_value(url: &str, key: &str) -> Option<String> {
@@ -325,7 +337,14 @@ fn handle(mut request: Request, root: PathBuf, token: &str) {
 }
 
 #[tauri::command]
-pub async fn start_http_server(state: State<'_, AppState>) -> Result<HttpInfo, String> {
+pub async fn start_http_server(
+    state: State<'_, AppState>,
+    bind_address: Option<String>,
+    password: String,
+) -> Result<HttpInfo, String> {
+    if password.len() < 4 || password.len() > 12 || !password.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+        return Err("The password must be 4-12 letters or digits.".to_string());
+    }
     {
         let mut current = state.http.lock().map_err(|error| error.to_string())?;
         if let Some(handle) = current.take() {
@@ -333,12 +352,15 @@ pub async fn start_http_server(state: State<'_, AppState>) -> Result<HttpInfo, S
             let _ = std::net::TcpStream::connect(("127.0.0.1", handle.port));
         }
     }
-    let server = match Server::http("0.0.0.0:8787") {
+    let bind_host = bind_address
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "0.0.0.0".to_string());
+    let server = match Server::http(format!("{}:8787", bind_host)) {
         Ok(server) => server,
-        Err(_) => Server::http("0.0.0.0:0").map_err(|error| error.to_string())?,
+        Err(_) => Server::http(format!("{}:0", bind_host)).map_err(|error| error.to_string())?,
     };
     let port = server.server_addr().to_ip().map(|addr| addr.port()).unwrap_or(8787);
-    let token = random_token();
+    let token = password;
     let stop = Arc::new(AtomicBool::new(false));
     let root = state.pm3_dir.clone();
     let thread_stop = stop.clone();
@@ -352,8 +374,19 @@ pub async fn start_http_server(state: State<'_, AppState>) -> Result<HttpInfo, S
             }
         }
     });
-    let addresses = local_addresses();
-    let host = addresses.first().cloned().unwrap_or_else(|| "127.0.0.1".to_string());
+    let mut addresses = local_addresses();
+    if !addresses.contains(&bind_host) && bind_host != "0.0.0.0" {
+        addresses.insert(0, bind_host.clone());
+    }
+    let host = if bind_host == "0.0.0.0" {
+        addresses
+            .iter()
+            .find(|address| !address.starts_with("127."))
+            .cloned()
+            .unwrap_or_else(|| "127.0.0.1".to_string())
+    } else {
+        bind_host
+    };
     let url = format!("http://{}:{}/?token={}", host, port, token);
     let info = HttpInfo {
         url,

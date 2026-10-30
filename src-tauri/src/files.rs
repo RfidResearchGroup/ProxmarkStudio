@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{Emitter, State};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
@@ -518,11 +518,33 @@ pub async fn import_files(
     .map_err(|error| error.to_string())?
 }
 
+fn count_zip_files(directory: &Path) -> usize {
+    let Ok(entries) = fs::read_dir(directory) else { return 0 };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let Ok(file_type) = entry.file_type() else { return 0 };
+            if file_type.is_symlink() {
+                0
+            } else if file_type.is_dir() {
+                count_zip_files(&entry.path())
+            } else if file_type.is_file() {
+                1
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+
 fn add_zip_dir(
     zip: &mut ZipWriter<File>,
     root: &Path,
     directory: &Path,
     options: SimpleFileOptions,
+    app: &tauri::AppHandle,
+    done: &mut usize,
+    total: usize,
 ) -> Result<(), String> {
     let mut entries = fs::read_dir(directory)
         .map_err(|error| format!("Could not read {}: {error}", directory.display()))?
@@ -536,17 +558,22 @@ fn add_zip_dir(
             continue;
         }
         if file_type.is_dir() {
-            add_zip_dir(zip, root, &path, options)?;
+            add_zip_dir(zip, root, &path, options, app, done, total)?;
         } else if file_type.is_file() {
             let relative = path
                 .strip_prefix(root)
                 .map_err(|error| error.to_string())?
                 .to_string_lossy()
                 .replace('\\', "/");
+            let _ = app.emit(
+                "zip-progress",
+                serde_json::json!({ "done": *done, "total": total, "file": relative }),
+            );
             zip.start_file(relative, options).map_err(|error| error.to_string())?;
             let mut input = File::open(&path)
                 .map_err(|error| format!("Could not open {}: {error}", path.display()))?;
             std::io::copy(&mut input, zip).map_err(|error| error.to_string())?;
+            *done += 1;
         }
     }
     Ok(())
@@ -554,11 +581,13 @@ fn add_zip_dir(
 
 #[tauri::command]
 pub async fn export_workspace_zip(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     destination: Option<String>,
 ) -> Result<ExportResult, String> {
     let root = state.pm3_dir.clone();
     let cache = state.home.join("cache");
+    let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         fs::create_dir_all(&cache)
             .map_err(|error| format!("Could not create cache directory: {error}"))?;
@@ -582,9 +611,19 @@ pub async fn export_workspace_zip(
         let options = SimpleFileOptions::default()
             .compression_method(CompressionMethod::Deflated)
             .unix_permissions(0o644);
-        add_zip_dir(&mut zip, &root, &root, options)?;
+        let total = count_zip_files(&root);
+        let _ = app.emit(
+            "zip-progress",
+            serde_json::json!({ "done": 0, "total": total, "file": "" }),
+        );
+        let mut done = 0usize;
+        add_zip_dir(&mut zip, &root, &root, options, &app, &mut done, total)?;
         let file = zip.finish().map_err(|error| error.to_string())?;
         let size = file.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+        let _ = app.emit(
+            "zip-progress",
+            serde_json::json!({ "done": done, "total": total, "file": "" }),
+        );
         Ok(ExportResult {
             path: output_path.to_string_lossy().to_string(),
             name,

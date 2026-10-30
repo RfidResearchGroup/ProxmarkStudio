@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   Loader2,
   MapPin,
   MoreHorizontal,
+  MoreVertical,
   RefreshCw,
   Search,
   Server,
@@ -46,6 +48,7 @@ import {
   isAndroid,
   isTauri,
   listDir,
+  listNetworkInterfaces,
   openExternal,
   pickExportDirectory,
   readFile,
@@ -56,6 +59,7 @@ import {
   type FileEntry,
   type HttpInfo,
   type ImportFilePayload,
+  type NetworkInterface,
   type ReadFileResult,
   type ReadMode,
 } from '@/services/backend'
@@ -99,14 +103,24 @@ const shareSupported = computed(() => platform.info.capabilities.share)
 const isRealApp = isTauri
 const importInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
+const moreOpen = ref(false)
 const exportOpen = ref(false)
 const exportBusy = ref(false)
 const exportResult = ref('')
+const exportProgress = ref({ done: 0, total: 0, file: '' })
+const exportPercent = computed(() =>
+  exportProgress.value.total
+    ? Math.min(100, Math.round((exportProgress.value.done / exportProgress.value.total) * 100))
+    : 0,
+)
 const httpConfirmOpen = ref(false)
 const httpInfo = ref<HttpInfo | null>(null)
 const httpOpen = ref(false)
 const httpBusy = ref(false)
 const httpError = ref('')
+const httpInterfaces = ref<NetworkInterface[]>([])
+const httpBindAddress = ref('0.0.0.0')
+const httpPassword = ref('')
 
 function absolutePath(relative: string): string {
   const root = platform.paths.pm3Dir
@@ -440,7 +454,8 @@ function closeExport() {
   if (!exportBusy.value) exportOpen.value = false
 }
 
-async function exportZip() {  if (exportBusy.value) return
+async function exportZip() {
+  if (exportBusy.value) return
   let destination: string | null = null
   if (!isAndroid) {
     destination = await pickExportDirectory()
@@ -449,6 +464,13 @@ async function exportZip() {  if (exportBusy.value) return
   exportOpen.value = true
   exportBusy.value = true
   exportResult.value = ''
+  exportProgress.value = { done: 0, total: 0, file: '' }
+  const unlisten = await listen<{ done: number; total: number; file: string }>(
+    'zip-progress',
+    (event) => {
+      exportProgress.value = event.payload
+    },
+  )
   try {
     const result = await exportWorkspaceZip(destination ?? undefined)
     exportResult.value = `${result.name} · ${formatBytes(result.size)}`
@@ -461,21 +483,44 @@ async function exportZip() {  if (exportBusy.value) return
     exportOpen.value = false
     toast.error(settings.t('files.exportFailed'), errorMessage(error))
   } finally {
+    unlisten()
     exportBusy.value = false
   }
 }
 
-function openHttpConfirm() {
+function randomPassword(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  const values = new Uint32Array(4)
+  crypto.getRandomValues(values)
+  return [...values].map((value) => alphabet[value % alphabet.length]).join('')
+}
+
+async function openHttpConfirm() {
   httpError.value = ''
+  httpPassword.value = randomPassword()
+  httpBindAddress.value = '0.0.0.0'
+  httpInterfaces.value = []
   httpConfirmOpen.value = true
+  try {
+    httpInterfaces.value = await listNetworkInterfaces()
+  } catch {
+    httpInterfaces.value = []
+  }
 }
 
 async function startHttp() {
   if (httpBusy.value) return
+  if (!/^[A-Za-z0-9]{4,12}$/.test(httpPassword.value)) {
+    httpError.value = settings.t('files.httpPasswordInvalid')
+    return
+  }
   httpBusy.value = true
   httpError.value = ''
   try {
-    httpInfo.value = await startHttpServer()
+    httpInfo.value = await startHttpServer(
+      httpPassword.value,
+      httpBindAddress.value === '0.0.0.0' ? undefined : httpBindAddress.value,
+    )
     httpConfirmOpen.value = false
     httpOpen.value = true
   } catch (error) {
@@ -540,10 +585,14 @@ async function confirmFolder() {
 
 function onWindowClick() {
   closeMenu()
+  moreOpen.value = false
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') closeMenu()
+  if (event.key === 'Escape') {
+    closeMenu()
+    moreOpen.value = false
+  }
 }
 
 watch(viewerMode, () => {
@@ -573,27 +622,51 @@ onUnmounted(() => {
       </div>
       <div class="head-actions">
         <input ref="importInput" class="hidden-file-input" type="file" multiple @change="onImportChange" />
-        <button v-if="isAndroid" class="btn btn--outline btn--sm" :disabled="importBusy" @click="openImport">
-          <Loader2 v-if="importBusy" :size="14" class="spinning" />
-          <FileUp v-else :size="14" />
-          {{ settings.t('files.import') }}
-        </button>
-        <button class="btn btn--outline btn--sm" @click="openHttpConfirm">
-          <Server :size="14" />
-          {{ settings.t('files.httpServer') }}
-        </button>
-        <button class="btn btn--outline btn--sm" @click="exportZip">
-          <Upload :size="14" />
-          {{ settings.t('files.export') }}
-        </button>
-        <button class="btn btn--outline btn--sm" @click="files.refresh()">
-          <RefreshCw :size="14" :class="{ spinning: files.loading }" />
-          {{ settings.t('files.refresh') }}
-        </button>
-        <button class="btn btn--primary btn--sm" @click="openFolderDialog">
-          <FolderPlus :size="14" />
-          {{ settings.t('files.newFolder') }}
-        </button>
+        <div class="head-actions__buttons">
+          <button v-if="isAndroid" class="btn btn--outline btn--sm" :disabled="importBusy" @click="openImport">
+            <Loader2 v-if="importBusy" :size="14" class="spinning" />
+            <FileUp v-else :size="14" />
+            {{ settings.t('files.import') }}
+          </button>
+          <button class="btn btn--outline btn--sm" @click="openHttpConfirm">
+            <Server :size="14" />
+            {{ settings.t('files.httpServer') }}
+          </button>
+          <button class="btn btn--outline btn--sm" @click="exportZip">
+            <Upload :size="14" />
+            {{ settings.t('files.export') }}
+          </button>
+          <button class="btn btn--outline btn--sm" @click="files.refresh()">
+            <RefreshCw :size="14" :class="{ spinning: files.loading }" />
+            {{ settings.t('files.refresh') }}
+          </button>
+          <button class="btn btn--primary btn--sm" @click="openFolderDialog">
+            <FolderPlus :size="14" />
+            {{ settings.t('files.newFolder') }}
+          </button>
+        </div>
+        <div class="head-actions__more-wrap">
+          <button class="icon-btn icon-btn--bordered head-actions__more" title="More actions" @click.stop="moreOpen = !moreOpen">
+            <MoreVertical :size="17" />
+          </button>
+          <div v-if="moreOpen" class="head-actions__menu" @click.stop>
+            <button v-if="isAndroid" class="head-actions__menu-item" @click="moreOpen = false; openImport()">
+              <FileUp :size="15" /> {{ settings.t('files.import') }}
+            </button>
+            <button class="head-actions__menu-item" @click="moreOpen = false; openHttpConfirm()">
+              <Server :size="15" /> {{ settings.t('files.httpServer') }}
+            </button>
+            <button class="head-actions__menu-item" @click="moreOpen = false; exportZip()">
+              <Upload :size="15" /> {{ settings.t('files.export') }}
+            </button>
+            <button class="head-actions__menu-item" @click="moreOpen = false; files.refresh()">
+              <RefreshCw :size="15" /> {{ settings.t('files.refresh') }}
+            </button>
+            <button class="head-actions__menu-item" @click="moreOpen = false; openFolderDialog()">
+              <FolderPlus :size="15" /> {{ settings.t('files.newFolder') }}
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -960,6 +1033,28 @@ onUnmounted(() => {
         <span class="danger-callout__icon"><ShieldAlert :size="20" /></span>
         <p>{{ settings.t('files.httpWarningBody') }}</p>
       </div>
+      <div class="http-config">
+        <label class="field">
+          <span class="field-label">{{ settings.t('files.httpInterface') }}</span>
+          <select v-model="httpBindAddress" class="input">
+            <option value="0.0.0.0">{{ settings.t('files.httpAllInterfaces') }}</option>
+            <option v-for="item in httpInterfaces" :key="item.address" :value="item.address">
+              {{ item.address }}
+            </option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{ settings.t('files.httpPassword') }}</span>
+          <input
+            v-model="httpPassword"
+            class="input mono"
+            maxlength="12"
+            minlength="4"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+      </div>
       <p v-if="httpError" class="form-error">{{ httpError }}</p>
       <template #foot>
         <button class="btn btn--outline" @click="httpConfirmOpen = false">{{ settings.t('common.cancel') }}</button>
@@ -979,9 +1074,14 @@ onUnmounted(() => {
       @close="closeHttp"
     >
       <div v-if="httpInfo" class="http-info">
-        <div class="http-info__row">
-          <span>{{ settings.t('files.httpAddress') }}</span>
-          <strong class="mono">{{ httpInfo.url }}</strong>
+        <div class="http-info__row http-info__row--address">
+          <div>
+            <span>{{ settings.t('files.httpAddress') }}</span>
+            <strong class="mono">{{ httpInfo.url }}</strong>
+          </div>
+          <button class="icon-btn icon-btn--bordered" :title="settings.t('files.httpCopy')" @click="copyHttp">
+            <Copy :size="14" />
+          </button>
         </div>
         <div class="http-info__row">
           <span>{{ settings.t('files.httpToken') }}</span>
@@ -990,10 +1090,6 @@ onUnmounted(() => {
         <p>{{ settings.t('files.httpWarningBody') }}</p>
       </div>
       <template #foot>
-        <button class="btn btn--outline" :disabled="httpBusy" @click="copyHttp">
-          <Copy :size="14" />
-          {{ settings.t('files.httpCopy') }}
-        </button>
         <button class="btn btn--primary" :disabled="httpBusy" @click="openHttp">
           <Globe2 :size="14" />
           {{ settings.t('files.httpOpen') }}
@@ -1016,8 +1112,15 @@ onUnmounted(() => {
         <Check v-else :size="22" />
         <div>
           <strong>{{ exportBusy ? settings.t('files.exporting') : settings.t('files.exportSuccess') }}</strong>
+          <p v-if="exportBusy && exportProgress.total" class="export-progress__count">
+            {{ exportProgress.done }} / {{ exportProgress.total }} · {{ exportPercent }}%
+          </p>
+          <p v-if="exportBusy && exportProgress.file" class="mono export-progress__file">{{ exportProgress.file }}</p>
           <p v-if="exportResult" class="mono">{{ exportResult }}</p>
         </div>
+      </div>
+      <div v-if="exportBusy" class="export-bar">
+        <span :style="{ width: `${exportPercent}%` }" />
       </div>
       <template #foot>
         <button class="btn btn--primary" :disabled="exportBusy" @click="exportOpen = false">
@@ -1035,6 +1138,64 @@ onUnmounted(() => {
 
 .hidden-file-input {
   display: none;
+}
+
+.head-actions__buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.head-actions__more-wrap {
+  position: relative;
+  display: none;
+}
+
+.head-actions__more {
+  display: grid;
+}
+
+.head-actions__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
+}
+
+.head-actions__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: left;
+}
+
+.head-actions__menu-item:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+@media (max-width: 1180px) {
+  .head-actions__buttons {
+    display: none;
+  }
+
+  .head-actions__more-wrap {
+    display: block;
+  }
 }
 
 .export-progress {
@@ -1057,10 +1218,68 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
+.export-progress__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.export-progress__file {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-bar {
+  height: 5px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--panel-inset);
+}
+
+.export-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
 .http-info {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.http-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.http-config select {
+  width: 100%;
+}
+
+.http-info__row--address {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.http-info__row--address > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.http-info__row--address strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .http-info__row {
@@ -1809,6 +2028,10 @@ onUnmounted(() => {
 
   .head-actions .btn {
     flex: 1;
+  }
+
+  .http-config {
+    grid-template-columns: 1fr;
   }
 
   .workspace-head {

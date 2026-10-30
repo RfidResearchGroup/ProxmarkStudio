@@ -36,7 +36,7 @@ main{padding:16px 18px 80px}
 #marquee{position:fixed;border:1px solid var(--accent);background:rgba(76,240,200,.12);pointer-events:none;display:none;z-index:9}
 .toast{position:fixed;right:18px;bottom:18px;background:#122235;border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);max-width:360px;display:none;z-index:20}
 .toast.err{border-color:#ff6b81;color:#ffb3be}
-@media(max-width:600px){header{padding:10px}.brand{display:none}main{padding:10px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}}
+@media(max-width:600px){header{padding:10px}.brand{display:none}main{padding:10px}.grid{grid-template-columns:1fr}.item{display:flex;align-items:center;gap:10px;padding:11px 10px}.item .actions{position:static;display:flex;margin-left:auto;padding-left:4px}.item .actions button{min-width:28px;min-height:28px}.list .item{padding:9px}}
 </style>
 </head>
 <body>
@@ -107,7 +107,7 @@ main{padding:16px 18px 80px}
       node.innerHTML = `<div class="icon">${entry.isDir ? '📁' : '📄'}</div><div style="min-width:0"><div class="name"></div><div class="sub"></div></div><div class="actions"><button data-act="download" title="Download">↓</button><button data-act="rename" title="Rename">✎</button><button data-act="delete" title="Delete">✕</button></div>`;
       node.querySelector('.name').textContent = entry.name;
       node.querySelector('.sub').textContent = entry.isDir ? 'folder' : fmt(entry.size);
-      node.addEventListener('click', (e) => { if (e.button !== 0) return; if (e.ctrlKey || e.metaKey || e.shiftKey) { state.selected.has(entry.path) ? state.selected.delete(entry.path) : state.selected.add(entry.path); render(); } });
+      node.addEventListener('click', (e) => { if (e.button !== 0) return; if (e.ctrlKey || e.metaKey || e.shiftKey) { state.selected.has(entry.path) ? state.selected.delete(entry.path) : state.selected.add(entry.path); render(); return; } if (entry.isDir) { load(entry.path); return; } state.selected.clear(); state.selected.add(entry.path); render(); });
       node.addEventListener('dblclick', () => entry.isDir ? load(entry.path) : download(entry));
       node.querySelector('[data-act="download"]').onclick = (e) => { e.stopPropagation(); entry.isDir ? downloadFolder(entry) : download(entry); };
       node.querySelector('[data-act="rename"]').onclick = (e) => { e.stopPropagation(); rename(entry); };
