@@ -2196,14 +2196,19 @@ onUnmounted(() => {
   }
 
   .session-detail__head {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
     gap: 8px;
   }
 
   .session-detail__actions {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .session-detail__actions .btn {
+    white-space: nowrap;
   }
 
   .session-detail__grid {
