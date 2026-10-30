@@ -199,7 +199,7 @@ as workflow artifacts for 14 days.
 3. Create and push an annotated tag whose version matches the config:
 
    ```bash
-   git tag v0.1.0
+   git tag -a v0.1.0 -m "Proxmark Studio 0.1.0"
    git push origin v0.1.0
    ```
 
