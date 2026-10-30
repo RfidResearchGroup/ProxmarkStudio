@@ -3,12 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMP="$ROOT/_temp"
-VERSION="0.2.2"
+VERSION="0.2.4"
 ARCHIVE="$TEMP/tauri-plugin-proxmark3-$VERSION.crate"
 EXTRACT="$TEMP/plugin-crate"
 PLUGIN="$EXTRACT/tauri-plugin-proxmark3-$VERSION"
 URL="https://github.com/xianglin1998/tauri-plugin-proxmark3/releases/download/v$VERSION/tauri-plugin-proxmark3-$VERSION.crate"
-SHA256="14f92421451586accb8bc88b7390da6c7d5b78aa6ac6b5f8d61b629c1f70a1eb"
+SHA256="f09b813a56f965619b98e4d10ac97cf81dd38f450c226b0f85073733ee8595c0"
 
 mkdir -p "$TEMP" "$EXTRACT"
 

@@ -4318,7 +4318,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-proxmark3"
-version = "0.2.2"
+version = "0.2.4"
 dependencies = [
  "cc",
  "serde",

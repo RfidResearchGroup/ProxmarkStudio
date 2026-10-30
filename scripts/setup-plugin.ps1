@@ -5,13 +5,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $temp = Join-Path $root '_temp'
-$version = '0.2.2'
+$version = '0.2.4'
 $archive = Join-Path $temp "tauri-plugin-proxmark3-$version.crate"
 $extractRoot = Join-Path $temp 'plugin-crate'
 $pluginDir = Join-Path $extractRoot "tauri-plugin-proxmark3-$version"
 $manifest = Join-Path $pluginDir 'Cargo.toml'
 $url = "https://github.com/xianglin1998/tauri-plugin-proxmark3/releases/download/v$version/tauri-plugin-proxmark3-$version.crate"
-$sha256 = '14f92421451586accb8bc88b7390da6c7d5b78aa6ac6b5f8d61b629c1f70a1eb'
+$sha256 = 'f09b813a56f965619b98e4d10ac97cf81dd38f450c226b0f85073733ee8595c0'
 
 New-Item -ItemType Directory -Force $temp, $extractRoot | Out-Null
 

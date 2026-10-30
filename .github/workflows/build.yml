@@ -229,7 +229,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android armv7-linux-androideabi
+          targets: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -248,18 +248,14 @@ jobs:
       - name: Build APK
         shell: bash
         run: |
-          pnpm tauri android build \
-            --debug \
-            --apk \
-            --target aarch64 \
-            --ci \
-            --ignore-version-mismatches
-          pnpm tauri android build \
-            --debug \
-            --apk \
-            --target armv7 \
-            --ci \
-            --ignore-version-mismatches
+          for target in aarch64 armv7 i686 x86_64; do
+            pnpm tauri android build \
+              --debug \
+              --apk \
+              --target "$target" \
+              --ci \
+              --ignore-version-mismatches
+          done
           cd src-tauri/gen/android
           ./gradlew :app:packageUniversalDebug -x rustBuildUniversalDebug --no-daemon
 
