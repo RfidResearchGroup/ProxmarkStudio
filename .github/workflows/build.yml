@@ -422,7 +422,7 @@ jobs:
           VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
           mkdir -p release-assets-normalized
           shopt -s nullglob
-          for file in release-assets/*; do
+          while IFS= read -r file; do
             base="$(basename "$file")"
             case "$base" in
               *x64*setup*.exe) out="ProxmarkStudio-${VERSION}-windows-x64-setup.exe" ;;
@@ -438,7 +438,7 @@ jobs:
               *) out="$base" ;;
             esac
             cp "$file" "release-assets-normalized/$out"
-          done
+          done < <(find release-assets -type f -print)
           test "$(find release-assets-normalized -type f | wc -l)" -gt 0
 
       - name: Publish versioned release
