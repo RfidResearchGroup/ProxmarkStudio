@@ -117,7 +117,7 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       overwrite: 'Some files already exist. Overwrite them?', folder: 'Folder', noAccess: 'Not available',
       layoutGrid: 'Switch to grid layout', layoutList: 'Switch to list layout', copied: 'Copied', up: 'Up one level',
       cancel: 'Cancel', confirm: 'Confirm', deleteTitle: 'Delete', renameTitle: 'Rename', moveTitle: 'Move', newFolderTitle: 'New folder', uploadTitle: 'Upload', moveHere: 'Move here',
-      noFolders: 'No subfolders here', moveBlocked: 'A folder cannot be moved inside itself or one of its subfolders.', moving: 'Moving…'
+      noFolders: 'No subfolders here', moveBlocked: 'A folder cannot be moved inside itself or one of its subfolders.', moving: 'Moving…', moved: 'Moved {count} item(s)'
     },
     zh: {
       documentTitle: 'Proxmark Studio · 工作区', workspace: '工作区', upload: '上传', newFolder: '新建文件夹',
@@ -131,7 +131,7 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
       overwrite: '部分文件已存在，是否覆盖？', folder: '文件夹', noAccess: '不可用',
       layoutGrid: '切换为网格排版', layoutList: '切换为列表排版', copied: '已复制', up: '返回上一级',
       cancel: '取消', confirm: '确定', deleteTitle: '删除', renameTitle: '重命名', moveTitle: '移动', newFolderTitle: '新建文件夹', uploadTitle: '上传', moveHere: '移动到这里',
-      noFolders: '这里没有子文件夹', moveBlocked: '不能把文件夹移动到自身或其子文件夹中。', moving: '移动中……'
+      noFolders: '这里没有子文件夹', moveBlocked: '不能把文件夹移动到自身或其子文件夹中。', moving: '移动中……', moved: '已移动 {count} 项'
     }
   };
   const state = { path: '', entries: [], selected: new Set(), layout: 'grid', sort: 'name', context: null, dragPath: '', moveSource: '' };
@@ -230,13 +230,17 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     if (moveState.busy || moveTargetInvalid(moveState.target) || moveTargetNoop(moveState.target)) return;
     moveState.busy = true; renderMoveDialog();
     try {
+      let moved = 0;
       for (const source of moveState.sources) {
         if (moveState.target === parent(source)) continue;
         const res = await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, target: moveState.target, name: source.split('/').pop() }) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) toast(data.error || t('uploadFailed'), true);
+        else moved++;
       }
-      $('moveBackdrop').style.display = 'none'; await load();
+      $('moveBackdrop').style.display = 'none';
+      if (moved) toast(t('moved', { count: moved }));
+      await load();
     } finally {
       moveState.busy = false; renderMoveDialog();
     }
@@ -410,6 +414,7 @@ main{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;max-widt
     const res = await api('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, target, name: source.split('/').pop() }) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return toast(data.error || t('uploadFailed'), true);
+    toast(t('moved', { count: 1 }));
     await load();
   }
   area.addEventListener('dragover', (e) => { e.preventDefault(); if (!state.dragPath) $('dropHint').textContent = state.moveSource ? t('moveHere') : t('drop'); });
