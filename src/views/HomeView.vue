@@ -280,18 +280,6 @@ function syncSelection() {
   selectedId.value = unifiedDevices.value[0]?.id ?? ''
 }
 
-async function refreshAll() {
-  refreshing.value = true
-  try {
-    if (isAndroid) await ensureBluetoothPermissions().catch(() => {})
-    await connection.refreshPorts()
-    syncSelection()
-    if (isConnected.value) await connection.probeDevice()
-  } finally {
-    refreshing.value = false
-  }
-}
-
 async function connect() {
   const device = selectedDevice.value
   if (connectDisabled.value || !device) return
@@ -494,9 +482,6 @@ onUnmounted(() => {
         <button class="btn btn--ghost btn--sm" @click="openDocs">
           <BookOpen :size="15" />
           {{ settings.t('home.documentation') }}
-        </button>
-        <button class="icon-btn icon-btn--bordered" :title="settings.t('common.refresh')" @click="refreshAll">
-          <RefreshCw :size="16" :class="{ spinning: refreshing }" />
         </button>
       </div>
     </header>
