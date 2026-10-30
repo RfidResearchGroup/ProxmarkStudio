@@ -192,7 +192,7 @@ jobs:
           retention-days: 14
 
   android:
-    name: Android / arm64
+    name: Android / universal
     runs-on: ubuntu-latest
     steps:
       - name: Check out
