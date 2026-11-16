@@ -155,6 +155,19 @@ Pushes to `main` publish debug builds to the rolling latest prerelease using the
 newest tag version; pushing a `v*` tag publishes optimized release builds with
 the tag version. Local builds use the fixed version `0.0.1-local`.
 
+The macOS DMGs are ad-hoc signed but not notarized, because the release workflow
+has no Apple Developer ID. macOS still quarantines anything downloaded from a
+browser, so on first launch move the app into `/Applications` and clear the
+quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Proxmark Studio.app"
+```
+
+On Apple Silicon an unsigned arm64 bundle is reported as "damaged and can't be
+opened" instead of showing the usual unidentified-developer warning, so skipping
+that command looks like a broken download rather than a Gatekeeper prompt.
+
 ## Development
 
 Build instructions, platform prerequisites, the release-asset naming rules and

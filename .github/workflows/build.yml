@@ -197,6 +197,18 @@ jobs:
           target="${{ matrix.target }}"
           app="$(find "src-tauri/target/$target/release/bundle/macos" -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$app"
+
+          # Seal the bundle ad-hoc before packaging. Without a Developer ID Tauri
+          # cannot sign, which leaves the arm64 bundle with only the linker's
+          # signature on the executable and no _CodeSignature/CodeResources. On
+          # Apple Silicon that combination is what macOS reports as "damaged and
+          # can't be opened", while the x86_64 build still starts under Rosetta,
+          # so the arm64 DMG looks broken (issue #1). Ad-hoc signing makes both
+          # DMGs behave the same: openable, with the usual unnotarized warning.
+          xattr -cr "$app"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --strict --verbose=2 "$app"
+
           dmg="src-tauri/target/$target/release/ProxmarkStudio-${{ matrix.name }}.dmg"
           for attempt in 1 2 3; do
             rm -f "$dmg"
