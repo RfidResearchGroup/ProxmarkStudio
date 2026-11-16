@@ -83,7 +83,10 @@ jobs:
             artifact: ProxmarkStudio-macos-x64
             paths: src-tauri/target/x86_64-apple-darwin/release/ProxmarkStudio-macos-x64.dmg
           - name: macos-arm64
-            os: macos-14
+            # The macOS 14 Arm64 image was retired on 2026-11-02, so this job
+            # failed with "configuration ... is not supported". macos-15 is its
+            # arm64 successor and keeps both macOS desktop jobs on one Xcode line.
+            os: macos-15
             target: aarch64-apple-darwin
             toolchain: stable
             bundles: app
