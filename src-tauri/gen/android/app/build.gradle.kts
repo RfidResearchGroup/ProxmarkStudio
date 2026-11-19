@@ -21,10 +21,10 @@ android {
     if (!ndkHome.isNullOrBlank()) {
         ndkPath = ndkHome
     }
-    namespace = "cn.forestweave.proxmarkstudio"
+    namespace = "com.rfidresearchgroup.proxmarkstudio"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "cn.forestweave.proxmarkstudio"
+        applicationId = "com.rfidresearchgroup.proxmarkstudio"
         minSdk = 26
         targetSdk = 35
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

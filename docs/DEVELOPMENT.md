@@ -258,8 +258,8 @@ ProxmarkStudio-0.1.0-ios-arm64.app.zip
 | Download cache | `<app-data>/cache` |
 | App preferences | Local storage (`pm3-studio.*` keys) |
 
-`<app-data>` is `%APPDATA%\cn.forestweave.proxmarkstudio` on Windows,
-`~/Library/Application Support/cn.forestweave.proxmarkstudio` on macOS,
+`<app-data>` is `%APPDATA%\com.rfidresearchgroup.proxmarkstudio` on Windows,
+`~/Library/Application Support/com.rfidresearchgroup.proxmarkstudio` on macOS,
 and the XDG data directory on Linux.
 
 ## Notes and limitations

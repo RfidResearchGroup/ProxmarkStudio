@@ -1,4 +1,4 @@
-package cn.forestweave.proxmarkstudio
+package com.rfidresearchgroup.proxmarkstudio
 
 import android.graphics.Color
 import android.os.Bundle
